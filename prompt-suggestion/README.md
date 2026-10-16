@@ -12,15 +12,31 @@ Works alongside extensions that replace the input editor (such as `pi-powerline-
 
 ## Install
 
+The extension is published to npm. Install it with pi's package manager:
+
 ```bash
 pi install npm:pi-prompt-suggestion
 ```
 
-Try it for one session without installing:
+This adds it to `packages` in `~/.pi/agent/settings.json`, so it loads in every session. Restart pi (or run `/reload`) to activate it.
 
 ```bash
-pi -e npm:pi-prompt-suggestion
+pi install -l npm:pi-prompt-suggestion        # this project only (.pi/settings.json)
+pi -e npm:pi-prompt-suggestion                # try it for one session without installing
+pi update npm:pi-prompt-suggestion            # update to the latest version
+pi remove npm:pi-prompt-suggestion            # uninstall
 ```
+
+## Usage
+
+Just keep working. After a turn ends and the input box stays empty for the idle delay, the predicted message appears as dimmed text:
+
+| Key | Action |
+|---|---|
+| Tab | Accept: puts the text in the input box (press Enter to send, or edit it first) |
+| Tab (empty box, nothing shown) | Generate a suggestion now |
+| Esc | Dismiss |
+| Any other key | Type normally; the suggestion comes back if you clear the box |
 
 ## How it generates
 
