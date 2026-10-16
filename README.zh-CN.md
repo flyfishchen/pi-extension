@@ -36,18 +36,18 @@ pi remove npm:pi-prompt-suggestion  # 卸载
 
 ## 使用
 
-第二次助手回复之后，输入框保持为空并空闲 20 秒，预测的下一条消息会以灰色文字出现在输入框中：
+助手回复后，在空输入框中按 Tab，预测的下一条消息会以灰色文字出现：
 
 | 按键 | 作用 |
 |---|---|
-| Tab | 采纳建议（填入输入框，按 Enter 发送） |
-| Tab（输入框为空且无建议） | 立即生成建议，无需等待 |
+| Tab（输入框为空且无建议） | 生成建议 |
+| Tab（显示建议时） | 采纳建议（填入输入框，按 Enter 发送） |
 | Esc | 忽略建议 |
 | 其他按键 | 正常输入；建议会隐藏，清空输入框后重新出现 |
 
-运行 `/suggestion` 修改设置：开关、空闲延迟（`off` 表示只在按 Tab 时生成）、最大长度、上下文模式（`segment` 便宜；`fork` 复用会话的 prompt 缓存，建议质量更好）或 segment 请求使用的单独模型（例如更便宜的模型）。修改保存在 `~/.pi/agent/prompt-suggestion.json`，立即生效。全部设置项见[扩展说明](prompt-suggestion/README.zh-CN.md)。
+运行 `/suggestion` 修改设置：自动生成的空闲延迟（默认关闭）、Tab to generate、最大长度、上下文模式（`segment` 便宜；`fork` 复用会话的 prompt 缓存，建议质量更好）或 segment 请求使用的单独模型（例如更便宜的模型）。修改保存在 `~/.pi/agent/prompt-suggestion.json`，立即生效。全部设置项见[扩展说明](prompt-suggestion/README.zh-CN.md)。
 
-每条建议是一次额外的模型请求。如需停止所有请求：`/suggestion` → Enabled → off。
+每条建议是一次额外的模型请求。只有按 Tab 或设置了空闲延迟时才会发送请求。
 
 ## 开发
 

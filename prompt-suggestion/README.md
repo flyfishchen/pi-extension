@@ -2,13 +2,11 @@
 
 English | [中文](README.zh-CN.md)
 
-A [pi](https://pi.dev) extension that predicts your next message after each turn and shows it as dimmed ghost text in the empty input box.
+A [pi](https://pi.dev) extension that predicts your next message and shows it as dimmed ghost text in the empty input box.
 
-- **Tab** accepts the suggestion; **Esc** dismisses it.
+- Press **Tab** in an empty input box to get a suggestion; press **Tab** again to accept it, **Esc** to dismiss it.
 - Typing hides it; clearing the input box brings it back. Sending a message or starting a new turn discards it.
-- **Tab** in an empty input box with no suggestion generates one immediately.
-
-Suggestions start after the second assistant reply, once the input box has been idle for the configured delay (20s by default).
+- Optional: set an **Idle delay** to get suggestions automatically once a turn ends and the input box has been idle that long (off by default).
 
 ## Highlights
 
@@ -39,12 +37,12 @@ pi remove npm:pi-prompt-suggestion      # uninstall
 
 ## Usage
 
-Just keep working. After a turn ends and the input box stays empty for the idle delay, the predicted message appears as dimmed text:
+After the assistant replies, press Tab in the empty input box; the predicted message appears as dimmed text. To get suggestions without pressing Tab, set Idle delay in `/suggestion` (they then start after the second assistant reply).
 
 | Key | Action |
 |---|---|
-| Tab | Accept: puts the text in the input box (press Enter to send, or edit it first) |
-| Tab (empty box, nothing shown) | Generate a suggestion now |
+| Tab (empty box, nothing shown) | Generate a suggestion |
+| Tab (suggestion shown) | Accept: puts the text in the input box (press Enter to send, or edit it first) |
 | Esc | Dismiss |
 | Any other key | Type normally; the suggestion comes back if you clear the box |
 
@@ -63,11 +61,10 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 
 | Setting | Default | Description |
 |---|---|---|
-| Enabled | on | When off, no requests are sent |
 | Context mode | fork | `fork` (session model, reuses the prompt cache) or `segment` (segment model, short excerpt) |
 | Segment model | Not set | Model for segment requests, including fork's fallback. Not set: no segment requests. Fork always uses the session model |
 | Tab to generate | on | Tab in an empty input box generates immediately |
-| Idle delay | 20s | How long the input box must stay idle after a turn; `off` (0) turns off automatic suggestions, Tab still generates one |
+| Idle delay | off | Generate automatically once the input box has been idle this long after a turn; `off` (0): only on Tab |
 | Max length | 30 chars | Longer suggestions are discarded |
 | Cache freshness | 300s | Older replies are treated as an expired cache (segment is used until the next turn warms it) |
 | Fork context limit | unlimited | Skip fork above this many tokens |
@@ -77,7 +74,7 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 
 ## Cost
 
-Each suggestion is one extra model request. In fork mode (the default) it is a full-context request that is mostly cache reads, since it only runs while the cache is warm; in segment mode it is a small request. Turn it off with `/suggestion` → Enabled → off.
+Each suggestion is one extra model request. In fork mode (the default) it is a full-context request that is mostly cache reads, since it only runs while the cache is warm; in segment mode it is a small request. Nothing is sent unless you press Tab or set an Idle delay; turning Tab to generate off as well stops all requests.
 
 ## License
 

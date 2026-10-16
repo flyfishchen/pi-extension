@@ -2,13 +2,11 @@
 
 [English](README.md) | 中文
 
-一个 [pi](https://pi.dev) 扩展：每轮对话结束后，预测你接下来最可能输入的消息，并以灰色提示文字（ghost text）显示在空输入框中。
+一个 [pi](https://pi.dev) 扩展：预测你接下来最可能输入的消息，并以灰色提示文字（ghost text）显示在空输入框中。
 
-- **Tab** 采纳建议，**Esc** 忽略建议。
+- 在空输入框中按 **Tab** 生成建议；再按 **Tab** 采纳，按 **Esc** 忽略。
 - 开始打字时建议会隐藏，清空输入框后重新出现；发送消息或开始新一轮对话后建议作废。
-- 输入框为空且没有显示建议时，按 **Tab** 立即生成一条。
-
-从第二次助手回复之后开始生成建议，且输入框需空闲达到设定的延迟（默认 20 秒）。
+- 可选：设置 **Idle delay** 后，一轮对话结束、输入框空闲达到该时长时自动生成建议（默认关闭）。
 
 ## 特点
 
@@ -39,12 +37,12 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 
 ## 使用
 
-照常工作即可。一轮对话结束、输入框保持空闲达到延迟时间后，预测的消息会以灰色文字出现：
+助手回复后，在空输入框中按 Tab，预测的消息会以灰色文字出现。如果不想每次按 Tab，可以在 `/suggestion` 中设置 Idle delay（自动生成从第二次助手回复之后开始）。
 
 | 按键 | 作用 |
 |---|---|
-| Tab | 采纳：把文字填入输入框（按 Enter 发送，或先修改） |
-| Tab（输入框为空且无建议） | 立即生成一条建议 |
+| Tab（输入框为空且无建议） | 生成一条建议 |
+| Tab（显示建议时） | 采纳：把文字填入输入框（按 Enter 发送，或先修改） |
 | Esc | 忽略 |
 | 其他按键 | 正常输入；清空输入框后建议会重新出现 |
 
@@ -63,11 +61,10 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 
 | 设置项 | 默认值 | 说明 |
 |---|---|---|
-| Enabled | on | 关闭后不生成建议、不发送任何请求 |
 | Context mode | fork | `fork`（会话模型，复用 prompt 缓存）或 `segment`（segment 模型，简短摘录） |
 | Segment model | Not set | segment 请求使用的模型，包括 fork 的回退。未设置则不发送 segment 请求。fork 总是使用会话模型 |
 | Tab to generate | on | 在空输入框中按 Tab 立即生成 |
-| Idle delay | 20s | 一轮结束后输入框需空闲多久才生成；`off`（0）关闭自动生成，按 Tab 仍可生成 |
+| Idle delay | off | 一轮结束后输入框空闲多久自动生成；`off`（0）：只在按 Tab 时生成 |
 | Max length | 30 chars | 超过此长度的建议会被丢弃 |
 | Cache freshness | 300s | 上次回复早于此时间则视为缓存已过期（改用 segment，直到下一轮让缓存变热） |
 | Fork context limit | unlimited | 会话超过此 token 数时跳过 fork |
@@ -77,7 +74,7 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 
 ## 成本
 
-每条建议是一次额外的模型请求。fork 模式（默认）下是完整上下文的请求，但只在缓存热时运行，大部分是缓存读取；segment 模式下请求很小。如需关闭：`/suggestion` → Enabled → off。
+每条建议是一次额外的模型请求。fork 模式（默认）下是完整上下文的请求，但只在缓存热时运行，大部分是缓存读取；segment 模式下请求很小。只有按 Tab 或设置了 Idle delay 时才会发送请求；同时关闭 Tab to generate 即停止所有请求。
 
 ## 许可证
 

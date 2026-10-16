@@ -7,11 +7,11 @@ import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from
 import { dirname, join } from "node:path";
 
 /**
- * prompt-suggestion: after a turn ends and the input box has been idle for a few seconds,
- * predict what the user is most likely to type next and show it as dimmed ghost text in the
- * empty input box (one suggestion). Tab accepts it, Esc dismisses it; typing (or accepting) hides it and
- * clearing the input box brings it back. Sending a message or a new turn discards it.
- * Tab in an empty input box with no suggestion showing generates one immediately (configurable).
+ * prompt-suggestion: predict what the user is most likely to type next and show it as dimmed ghost
+ * text in the empty input box (one suggestion). Tab in an empty input box with no suggestion showing
+ * generates one; with an idle delay configured, one is also generated automatically once a turn ends
+ * and the input box has been idle that long. Tab accepts it, Esc dismisses it; typing (or accepting)
+ * hides it and clearing the input box brings it back. Sending a message or a new turn discards it.
  *
  * Prompt and validation follow Claude Code 2.1.x's prompt-suggestion subsystem:
  * - predict what the user would type themselves, not what the assistant would suggest;
@@ -45,7 +45,8 @@ const MAX_CARD_CHARS_CAP = 100;
 function cardWordLimit(charLimit: number): number {
   return Math.max(MAX_CARD_WORDS, Math.round(charLimit / 6));
 }
-const DEFAULT_DELAY_SECONDS = 20;
+/** Default idle delay: 0 = no automatic suggestions (Tab generates one) */
+const DEFAULT_DELAY_SECONDS = 0;
 /** Only suggest after at least two assistant replies (Claude Code's early_conversation suppression) */
 const MIN_ASSISTANT_TURNS = 2;
 /** Cold-cache threshold: skip fork if last turn's uncached tokens exceed this (Claude Code uses 1e4) */
@@ -62,8 +63,6 @@ const FORK_MIN_TOKENS = 2000;
 const DEFAULT_MAX_FORK_TOKENS = 0;
 
 interface SuggestionConfig {
-  /** Enabled (default true); false = never generate, never send requests */
-  enabled?: boolean;
   /** Tab in an empty input box generates a suggestion immediately (default true) */
   tabToGenerate?: boolean;
   /**
@@ -74,7 +73,7 @@ interface SuggestionConfig {
   segmentModel?: string;
   /** Maximum characters per suggestion (8-100, default 30) */
   maxCardChars?: number;
-  /** Idle seconds before generating (5-600, default 20; 0 = no automatic suggestions, Tab only) */
+  /** Idle seconds before an automatic suggestion (5-600; default 0 = no automatic suggestions, Tab only) */
   delaySeconds?: number;
   /**
    * Context mode:
@@ -1031,7 +1030,7 @@ function showGhost(ctx: ExtensionContext, text: string) {
 
 /** Generate and show one suggestion as ghost text; Tab puts it in the editor. Only while still idle. */
 async function runSuggestion(ctx: ExtensionContext, manual = false) {
-  if (!ctx.isIdle() || !isEnabled() || !canGenerate(ctx)) return;
+  if (!ctx.isIdle() || !canGenerate(ctx)) return;
   const ac = new AbortController();
   inflight = ac;
   let items: string[] = [];
@@ -1065,7 +1064,7 @@ function canTriggerByTab(): boolean {
   }
   const cfg = loadConfig();
   // Segment mode without a segment model generates nothing: leave Tab to the editor
-  return cfg.enabled !== false && cfg.tabToGenerate !== false && !!ctx && canGenerate(ctx);
+  return cfg.tabToGenerate !== false && !!ctx && canGenerate(ctx);
 }
 
 /** Generate immediately (Tab in an empty editor): skip the idle delay and show a placeholder meanwhile */
@@ -1110,12 +1109,6 @@ function numChoices(presets: number[], current: number | undefined, dflt: number
 }
 
 const SETTINGS: SettingDef[] = [
-  {
-    id: "enabled",
-    label: "Enabled",
-    description: "When off, no suggestions are generated and no requests are sent",
-    choices: () => ON_OFF(true),
-  },
   {
     id: "context",
     label: "Context mode",
@@ -1185,12 +1178,7 @@ function applySetting(id: keyof SuggestionConfig, value: unknown) {
   if (value === undefined) delete cfg[id];
   else cfg[id] = value;
   saveConfig(cfg);
-  if (id === "enabled" && value === false) cancelSuggestion();
-}
-
-/** Whether suggestions are enabled (default on) */
-function isEnabled(): boolean {
-  return loadConfig().enabled !== false;
+  if (id === "delaySeconds" && value === undefined) cancelTimer(); // back to the default (off)
 }
 
 function openSettings(ctx: ExtensionContext): Promise<void> {
@@ -1290,8 +1278,7 @@ export default function promptSuggestion(pi: ExtensionAPI) {
     cancelTimer();
     // Other extensions (e.g. pi-powerline-footer) may reinstall their editor at any time; rewrap so
     // Tab-to-generate and ghost text keep working on the editor actually in use
-    if (isEnabled()) ensureGhostEditor(ctx);
-    if (!isEnabled()) return;
+    ensureGhostEditor(ctx);
     const delay = delayMs();
     if (delay === undefined) return; // automatic suggestions off; Tab still generates one
     timer = setTimeout(() => {

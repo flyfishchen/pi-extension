@@ -36,18 +36,18 @@ pi remove npm:pi-prompt-suggestion  # uninstall
 
 ## Usage
 
-After the second assistant reply, once the input box has been empty and idle for 20 seconds, a predicted next message appears as dimmed text in the input box:
+After the assistant replies, press Tab in the empty input box and a predicted next message appears as dimmed text:
 
 | Key | Action |
 |---|---|
-| Tab | Accept the suggestion (inserts it into the input box; press Enter to send) |
-| Tab (empty box, nothing shown) | Generate a suggestion now instead of waiting |
+| Tab (empty box, nothing shown) | Generate a suggestion |
+| Tab (suggestion shown) | Accept it (inserts it into the input box; press Enter to send) |
 | Esc | Dismiss the suggestion |
 | Any other key | Type normally; the suggestion hides and comes back when the box is empty again |
 
-Run `/suggestion` to change settings: turn it on or off, the idle delay (`off` = only on Tab), maximum length, context mode (`segment` is cheap, `fork` reuses the session's prompt cache for better suggestions), or a separate (e.g. cheaper) model for segment requests. Changes are saved to `~/.pi/agent/prompt-suggestion.json` and apply immediately. See the [extension README](prompt-suggestion/README.md) for every setting.
+Run `/suggestion` to change settings: the idle delay for automatic suggestions (off by default), Tab to generate, maximum length, context mode (`segment` is cheap, `fork` reuses the session's prompt cache for better suggestions), or a separate (e.g. cheaper) model for segment requests. Changes are saved to `~/.pi/agent/prompt-suggestion.json` and apply immediately. See the [extension README](prompt-suggestion/README.md) for every setting.
 
-Each suggestion is one extra model request. To stop all requests, use `/suggestion` → Enabled → off.
+Each suggestion is one extra model request. Nothing is sent unless you press Tab or set an idle delay.
 
 ## Development
 
