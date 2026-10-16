@@ -502,6 +502,9 @@ function lastAssistantEntry(ctx: ExtensionContext): any | undefined {
 
 /**
  * Whether the cache is likely warm:
+ * 0) model: the last assistant message came from a different model than the session's current one
+ *    (the user switched models) -> the new model has no cache yet; treated as expired until a turn
+ *    with the new model completes;
  * 1) freshness: the last assistant message is older than cacheTtlSeconds -> probably expired;
  * 2) usage (Claude Code's O()): last turn's uncached tokens (input+output) above the threshold -> cold.
  * pi's Usage.input excludes cacheRead/cacheWrite, matching Anthropic semantics.
@@ -509,7 +512,10 @@ function lastAssistantEntry(ctx: ExtensionContext): any | undefined {
  */
 function cacheState(ctx: ExtensionContext): "warm" | "expired" | "cold" {
   const e = lastAssistantEntry(ctx);
-  const u = e?.message?.usage;
+  const cur: any = ctx.model;
+  const m = e?.message;
+  if (cur && m?.provider && m?.model && (m.provider !== cur.provider || m.model !== cur.id)) return "expired";
+  const u = m?.usage;
   if (!u) return "warm";
   const ttlSeconds = loadConfig().cacheTtlSeconds ?? DEFAULT_CACHE_TTL_SECONDS;
   if (ttlSeconds > 0) {
