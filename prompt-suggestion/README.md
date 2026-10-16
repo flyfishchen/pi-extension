@@ -41,7 +41,7 @@ After the assistant replies, press Tab in the empty input box; the predicted mes
 
 | Key | Action |
 |---|---|
-| Tab (empty box, nothing shown) | Generate a suggestion |
+| Tab (empty box, nothing shown) | Generate a suggestion (gives its best guess even when the next step is unclear) |
 | Tab (suggestion shown) | Accept: puts the text in the input box (press Enter to send, or edit it first) |
 | Esc | Dismiss |
 | Any other key | Type normally; the suggestion comes back if you clear the box |

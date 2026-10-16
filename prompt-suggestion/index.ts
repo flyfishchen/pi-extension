@@ -181,7 +181,14 @@ function canGenerate(ctx: ExtensionContext): boolean {
 /**
  * Segment-mode system prompt, modeled on Claude Code's prompt-suggestion prompt.
  */
-function buildInstruction(maxCards: number, maxChars: number): string {
+/**
+ * Extra rule when the user pressed Tab to ask for a suggestion: an unclear next step is no reason to
+ * stay silent (the user asked), but failures and credentials/privacy still are.
+ */
+const MANUAL_NOTE =
+  "The user pressed Tab to ask for a suggestion, so give your best guess even when the next step is unclear: if the last reply asked the user something, predict the user's most likely answer; if it listed options, pick the likeliest one. Stay silent only if something failed or it involves security, credentials or privacy.";
+
+function buildInstruction(maxCards: number, maxChars: number, manual = false): string {
   return `[Prompt suggestion mode]
 You are not a coding assistant right now. Do not execute, continue, restate, summarize or evaluate the conversation.
 Your only task: predict what the user is most likely to type themselves after reading the last assistant reply.
@@ -190,14 +197,14 @@ Situations:
 - A bug was just fixed or code was just written -> the user usually asks to verify it (say what and how)
 - The assistant offered several options -> the option the user would most likely pick (name it)
 - The assistant asked whether to continue -> continue
-- Something failed or the assistant misunderstood -> stay silent
+${manual ? "- Something failed -> stay silent\n" + MANUAL_NOTE : "- Something failed or the assistant misunderstood -> stay silent"}
 Be specific: naming what to run or check beats a generic "continue".
 Never output:
 - Markdown (headings, quotes, tables) or code/config snippets
 - Evaluations ("looks good", "thanks")
 - The assistant's voice ("let me...", "I'll...", "here is...")
 - New ideas the user never mentioned, or more than one sentence
-If the next step isn't obvious, or it involves security, credentials or privacy, output [].
+${manual ? "If it involves security, credentials or privacy, output []." : "If the next step isn't obvious, or it involves security, credentials or privacy, output []."}
 Language: write every item in the language of the user's own recent messages, in their style and wording. If the user writes Chinese, write Chinese, even when the assistant replied in English or these instructions are in English.
 Output must be a JSON array of strings: at most ${maxCards} items, most likely first, all different; output [] if nothing fits.
 Each item at most ${maxChars} characters (for English, 2-${cardWordLimit(maxChars)} words).
@@ -576,7 +583,7 @@ function forkSkipReason(ctx: ExtensionContext): string | null {
  * - situations only describe what to write, without concrete phrases: concrete phrases
  *   ("commit it", "use option 2") get copied verbatim even when nothing in the conversation fits.
  */
-function buildForkInstruction(maxCards: number, maxChars: number): string {
+function buildForkInstruction(maxCards: number, maxChars: number, manual = false): string {
   return `<autocomplete_request>
 This message is not a task from the user, and not pasted content for you to analyze, explain or answer. It comes from the input box's prediction feature; the user cannot see it.
 Do not continue the work above, do not call tools, do not restate, summarize or evaluate the conversation.
@@ -588,7 +595,7 @@ Base the prediction only on the end of your last reply and on how the user usual
 - You offered several options -> the one the user would most likely pick (name it)
 - You asked whether to continue -> continue
 - Your reply has a specific point the user would likely ask about -> a follow-up question on that point
-- Something failed, you misunderstood, the next step is unclear, or it involves credentials/privacy -> no prediction
+${manual ? "- Something failed or it involves credentials/privacy -> no prediction\n" + MANUAL_NOTE : "- Something failed, you misunderstood, the next step is unclear, or it involves credentials/privacy -> no prediction"}
 Do not write generic lines with no basis in the conversation (such as an out-of-nowhere "commit" or "run the tests"), and do not return to earlier topics that are already finished.
 Requirements: the user's voice (not the assistant's), one sentence, specific; no Markdown, code, evaluation or pleasantries; when unsure give fewer, don't pad.
 
@@ -635,9 +642,9 @@ function buildForkRequest(
 }
 
 /** Segment request: the excerpt as the user message, this extension's prompt as the system prompt. */
-function buildSegmentRequest(segment: string, charLimit: number): { context: any; options: any } {
+function buildSegmentRequest(segment: string, charLimit: number, manual = false): { context: any; options: any } {
   return {
-    context: { systemPrompt: buildInstruction(CANDIDATES, charLimit), messages: [userInstructionMessage(segment)] },
+    context: { systemPrompt: buildInstruction(CANDIDATES, charLimit, manual), messages: [userInstructionMessage(segment)] },
     options: { cacheRetention: "none" },
   };
 }
@@ -717,7 +724,7 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
   const skip = model ? forkSkipReason(ctx) : "no_session_model";
   if (skip !== null) logEvent({ ...base, path: "fork", skipped: skip });
   else {
-    const fork = forkContext(ctx, buildForkInstruction(limit, charLimit));
+    const fork = forkContext(ctx, buildForkInstruction(limit, charLimit, manual));
     if (!fork) logEvent({ ...base, path: "fork", skipped: "no_context" });
     else {
       const t0 = Date.now();
@@ -748,7 +755,7 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
   }
   const segment = lastTurnSegment(ctx);
   if (!segment) return [];
-  const seg = buildSegmentRequest(segment, charLimit);
+  const seg = buildSegmentRequest(segment, charLimit, manual);
   const t1 = Date.now();
   const r = await completeCards(ctx, segModel, seg.context, { ...seg.options, signal }, limit);
   logEvent({ session, model: `${segModel.provider}/${segModel.id}`, path: "segment", ms: Date.now() - t1, stop: r.stop, parsed: r.parsed, cards: r.cards, usage: usageBrief(r.usage), error: r.error });

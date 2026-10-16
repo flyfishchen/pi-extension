@@ -15,6 +15,7 @@
 //     --last                  also use the final assistant reply (no "actual next" input)
 //     --dry                   build requests and print their size without sending
 //     --raw                   always print the raw model output (also when it parsed)
+//     --manual                use the Tab-triggered (manual) instruction
 //
 // Requires the Node that ships with pi (>= 22.6, type stripping on). Costs real tokens.
 
@@ -24,9 +25,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const USAGE = "usage: node scripts/replay.mjs <session.jsonl> --model provider/id [--mode fork|segment] [--thinking level] [--cuts n] [--last] [--dry] [--raw]";
+const USAGE = "usage: node scripts/replay.mjs <session.jsonl> --model provider/id [--mode fork|segment] [--thinking level] [--cuts n] [--last] [--dry] [--raw] [--manual]";
 const VALUE_FLAGS = new Set(["--model", "--mode", "--thinking", "--cuts"]);
-const BOOL_FLAGS = new Set(["--last", "--dry", "--raw"]);
+const BOOL_FLAGS = new Set(["--last", "--dry", "--raw", "--manual"]);
 
 function fail(msg) {
   console.error(`${msg}\n${USAGE}`);
@@ -59,6 +60,7 @@ const modelId = modelSpec.slice(slash + 1); // ids may themselves contain "/"
 const mode = opts["--mode"] ?? "fork";
 if (mode !== "fork" && mode !== "segment") fail(`--mode must be fork or segment, got "${mode}"`);
 const thinking = opts["--thinking"] ?? "off";
+const manual = opts["--manual"] === true;
 const nCuts = Number(opts["--cuts"] ?? "3");
 if (!Number.isInteger(nCuts) || nCuts < 1) fail(`--cuts must be a positive integer, got "${opts["--cuts"]}"`);
 
@@ -107,13 +109,13 @@ for (const leaf of cuts.slice(-nCuts)) {
   let req;
   if (mode === "segment") {
     const segment = ext.lastTurnSegment({ sessionManager: { getBranch: () => sm.getBranch(leaf.id) } });
-    req = ext.buildSegmentRequest(segment, charLimit);
+    req = ext.buildSegmentRequest(segment, charLimit, manual);
   } else {
     const llm = convertToLlm(buildSessionProjection(entries, leaf.id).messages);
     // The live extension passes ctx.getSystemPrompt(), used only when the projection has no leading
     // system message (older sessions). It isn't recoverable offline, so flag those cuts.
     if (llm[0]?.role !== "system") console.error(`warning: ${leaf.id.slice(-6)} has no system message in the session; replayed without one`);
-    req = ext.buildForkRequest(llm, ext.buildForkInstruction(ext.CANDIDATES, charLimit), { thinkingLevel: thinking, sessionId: sm.getSessionId() });
+    req = ext.buildForkRequest(llm, ext.buildForkInstruction(ext.CANDIDATES, charLimit, manual), { thinkingLevel: thinking, sessionId: sm.getSessionId() });
   }
   const next = msgs[msgs.indexOf(leaf) + 1]?.message;
   const base = { leaf: leaf.id.slice(-6), mode, msgs: req.context.messages.length, actualNext: next ? textOf(next).slice(0, 60) : "(none)" };
