@@ -7,8 +7,8 @@
 // whether the output parsed, the suggestions, and what the user actually typed next.
 //
 // Usage:
-//   node scripts/replay.mjs <session.jsonl> [options]
-//     --model <provider/id>   model from models.json (default: newapi/deepseek-flash)
+//   node scripts/replay.mjs <session.jsonl> --model <provider/id> [options]
+//     --model <provider/id>   model from models.json (required)
 //     --mode fork|segment     request shape (default: fork)
 //     --thinking <level>      session thinking level to mirror in fork mode (default: off)
 //     --cuts <n>              number of cut points from the end (default: 3)
@@ -24,7 +24,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const USAGE = "usage: node scripts/replay.mjs <session.jsonl> [--model provider/id] [--mode fork|segment] [--thinking level] [--cuts n] [--last] [--dry] [--raw]";
+const USAGE = "usage: node scripts/replay.mjs <session.jsonl> --model provider/id [--mode fork|segment] [--thinking level] [--cuts n] [--last] [--dry] [--raw]";
 const VALUE_FLAGS = new Set(["--model", "--mode", "--thinking", "--cuts"]);
 const BOOL_FLAGS = new Set(["--last", "--dry", "--raw"]);
 
@@ -51,6 +51,7 @@ if (positional.length !== 1) fail("expected exactly one session file");
 const file = positional[0];
 
 const modelSpec = opts["--model"];
+if (modelSpec === undefined) fail("--model is required");
 const slash = modelSpec.indexOf("/");
 if (slash <= 0) fail(`--model must be provider/id, got "${modelSpec}"`);
 const provider = modelSpec.slice(0, slash);
