@@ -45,7 +45,7 @@ pi remove npm:pi-prompt-suggestion  # 卸载
 | Esc | 忽略建议 |
 | 其他按键 | 正常输入；建议会隐藏，清空输入框后重新出现 |
 
-运行 `/suggestion` 修改设置：开关、空闲延迟、最大长度、上下文模式（`segment` 便宜；`fork` 复用会话的 prompt 缓存，建议质量更好）或 segment 请求使用的单独模型（例如更便宜的模型）。修改保存在 `~/.pi/agent/prompt-suggestion.json`，立即生效。全部设置项见[扩展说明](prompt-suggestion/README.zh-CN.md)。
+运行 `/suggestion` 修改设置：开关、空闲延迟（`off` 表示只在按 Tab 时生成）、最大长度、上下文模式（`segment` 便宜；`fork` 复用会话的 prompt 缓存，建议质量更好）或 segment 请求使用的单独模型（例如更便宜的模型）。修改保存在 `~/.pi/agent/prompt-suggestion.json`，立即生效。全部设置项见[扩展说明](prompt-suggestion/README.zh-CN.md)。
 
 每条建议是一次额外的模型请求。如需停止所有请求：`/suggestion` → Enabled → off。
 

@@ -74,7 +74,7 @@ interface SuggestionConfig {
   segmentModel?: string;
   /** Maximum characters per suggestion (8-100, default 30) */
   maxCardChars?: number;
-  /** Idle seconds before generating (5-600, default 20) */
+  /** Idle seconds before generating (5-600, default 20; 0 = no automatic suggestions, Tab only) */
   delaySeconds?: number;
   /**
    * Context mode:
@@ -154,8 +154,10 @@ function cardCharLimit(): number {
   return Number.isFinite(n) ? clamp(Math.round(n), 8, MAX_CARD_CHARS_CAP) : DEFAULT_MAX_CARD_CHARS;
 }
 
-function delayMs(): number {
+/** Idle delay before an automatic suggestion; undefined when turned off (delaySeconds: 0) */
+function delayMs(): number | undefined {
   const n = loadConfig().delaySeconds ?? DEFAULT_DELAY_SECONDS;
+  if (n === 0) return undefined;
   return (Number.isFinite(n) ? clamp(n, 5, 600) : DEFAULT_DELAY_SECONDS) * 1000;
 }
 
@@ -1138,8 +1140,9 @@ const SETTINGS: SettingDef[] = [
   {
     id: "delaySeconds",
     label: "Idle delay",
-    description: "How long the input box must stay idle after a turn before generating",
-    choices: (cfg) => numChoices([5, 10, 15, 20, 30, 45, 60, 120, 300, 600], cfg.delaySeconds, DEFAULT_DELAY_SECONDS, (n) => `${n}s`),
+    description: "How long the input box must stay idle after a turn before generating. off: no automatic suggestions (Tab still generates one)",
+    choices: (cfg) =>
+      numChoices([0, 5, 10, 15, 20, 30, 45, 60, 120, 300, 600], cfg.delaySeconds, DEFAULT_DELAY_SECONDS, (n) => (n === 0 ? "off" : `${n}s`)),
   },
   {
     id: "maxCardChars",
@@ -1289,10 +1292,12 @@ export default function promptSuggestion(pi: ExtensionAPI) {
     // Tab-to-generate and ghost text keep working on the editor actually in use
     if (isEnabled()) ensureGhostEditor(ctx);
     if (!isEnabled()) return;
+    const delay = delayMs();
+    if (delay === undefined) return; // automatic suggestions off; Tab still generates one
     timer = setTimeout(() => {
       timer = undefined;
       void runSuggestion(ctx);
-    }, delayMs());
+    }, delay);
   });
 
   // Any user input cancels a pending or in-flight suggestion
@@ -1306,5 +1311,5 @@ export default function promptSuggestion(pi: ExtensionAPI) {
 export {
   CANDIDATES, triggerNow, canTriggerByTab, injectGhost, patchGhost, wrapEditorFactory, showGhost, clearGhost,
   buildInstruction, buildForkInstruction, buildForkRequest, buildSegmentRequest, lastTurnSegment, rejectReason,
-  generateCards, wordCount, cacheIsWarm, cacheState, canGenerate, forkSkipReason, resetForkState, recordForkOutcome, parseOutput, cardCharLimit,
+  generateCards, wordCount, cacheIsWarm, cacheState, canGenerate, delayMs, forkSkipReason, resetForkState, recordForkOutcome, parseOutput, cardCharLimit,
 };

@@ -67,7 +67,7 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 | Context mode | fork | `fork` (session model, reuses the prompt cache) or `segment` (segment model, short excerpt) |
 | Segment model | Not set | Model for segment requests, including fork's fallback. Not set: no segment requests. Fork always uses the session model |
 | Tab to generate | on | Tab in an empty input box generates immediately |
-| Idle delay | 20s | How long the input box must stay idle after a turn |
+| Idle delay | 20s | How long the input box must stay idle after a turn; `off` (0) turns off automatic suggestions, Tab still generates one |
 | Max length | 30 chars | Longer suggestions are discarded |
 | Cache freshness | 300s | Older replies are treated as an expired cache (segment is used until the next turn warms it) |
 | Fork context limit | unlimited | Skip fork above this many tokens |

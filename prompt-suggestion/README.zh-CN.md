@@ -67,7 +67,7 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 | Context mode | fork | `fork`（会话模型，复用 prompt 缓存）或 `segment`（segment 模型，简短摘录） |
 | Segment model | Not set | segment 请求使用的模型，包括 fork 的回退。未设置则不发送 segment 请求。fork 总是使用会话模型 |
 | Tab to generate | on | 在空输入框中按 Tab 立即生成 |
-| Idle delay | 20s | 一轮结束后输入框需空闲多久才生成 |
+| Idle delay | 20s | 一轮结束后输入框需空闲多久才生成；`off`（0）关闭自动生成，按 Tab 仍可生成 |
 | Max length | 30 chars | 超过此长度的建议会被丢弃 |
 | Cache freshness | 300s | 上次回复早于此时间则视为缓存已过期（改用 segment，直到下一轮让缓存变热） |
 | Fork context limit | unlimited | 会话超过此 token 数时跳过 fork |
