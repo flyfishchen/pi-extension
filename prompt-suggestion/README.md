@@ -14,7 +14,7 @@ Suggestions start after the second assistant reply, once the input box has been 
 
 - **Predicts what you would say, not what the assistant would.** The prompt and output rules follow Claude Code's prompt-suggestion feature: a suggestion is the next thing you would type yourself, not an assistant-voice offer.
 - **Silent rather than wrong.** Model output goes through a deterministic filter that rejects evaluations ("looks good", "thanks"), assistant-voice text, Markdown, code, multiple sentences, and anything too long. When there is no good guess, nothing is shown.
-- **Reuses the session's prompt cache.** In fork mode the request is identical to the main loop's (same thinking level, tools, and parameters), so it hits the session's own cache: 99.9% cache hits measured on a long session, so even a full-context request costs little more than cache reads. Once the cache turns cold, expires, or keeps missing, fork is turned off for the rest of the session and the cheap segment mode is used instead, optionally with a cheaper segment model.
+- **Reuses the session's prompt cache.** In fork mode the request is identical to the main loop's (same thinking level, tools, and parameters), so it hits the session's own cache: 99.9% cache hits measured on a long session, so even a full-context request costs little more than cache reads. While the cache is cold or expired, the cheap segment mode is used instead (optionally with a cheaper segment model), and fork resumes as soon as the conversation warms the cache again.
 - **Speaks your language.** Chinese conversations get Chinese suggestions; the filter also catches CJK pleasantries and assistant voice.
 - **Plays well with other editor extensions.** It wraps the current input editor instead of replacing it, so it works alongside extensions that install their own editor (such as `pi-powerline-footer`). If it can't draw inside the editor, it shows a line above it instead.
 - **Works out of the box.** Uses the session's model by default with no setup; every setting is in `/suggestion` and applies immediately.
@@ -53,7 +53,7 @@ Just keep working. After a turn ends and the input box stays empty for the idle 
 Pick the mode with `/suggestion` → Context mode:
 
 - **segment** (default): sends a short excerpt of the last turn to the **segment model**. Cheap and fast. The segment model follows the session's model unless you pick another one (for example a cheaper model) under Segment model.
-- **fork**: replays the full session with the **session's model**, so the request reuses the session's own prompt cache, which gives the best suggestions at low cost when the cache is warm. Fork falls back to segment (using the segment model) when the model doesn't return a usable answer. Once the cache looks cold or expired, or forks keep missing the cache, fork is turned off for the rest of the session and segment is used instead; a new session or `/reload` turns it back on.
+- **fork**: replays the full session with the **session's model**, so the request reuses the session's own prompt cache, which gives the best suggestions at low cost when the cache is warm. Fork falls back to segment (using the segment model) when the model doesn't return a usable answer. While the cache looks cold or expired, segment is used instead; fork resumes automatically once you keep talking and a new turn warms the cache. If forks keep missing the cache, fork is turned off for the rest of the session; a new session or `/reload` turns it back on.
 
 ## Settings
 
@@ -67,7 +67,7 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 | Tab to generate | on | Tab in an empty input box generates immediately |
 | Idle delay | 20s | How long the input box must stay idle after a turn |
 | Max length | 30 chars | Longer suggestions are discarded |
-| Cache freshness | 300s | Older replies are treated as an expired cache (fork is turned off for the session) |
+| Cache freshness | 300s | Older replies are treated as an expired cache (segment is used until the next turn warms it) |
 | Fork context limit | unlimited | Skip fork above this many tokens |
 | Diagnostic log | off | Write one JSONL line per generation to `~/.pi/agent/prompt-suggestion.log` |
 

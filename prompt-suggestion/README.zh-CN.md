@@ -14,7 +14,7 @@
 
 - **预测你会说的话，而不是助手想说的话。** 提示词和输出规则参照 Claude Code 的 prompt suggestion 功能：建议应是你自己会输入的下一句，而不是助手口吻的提议。
 - **宁缺毋滥。** 模型输出会经过确定性过滤器，拒绝评价性语句（"看起来不错"、"谢谢"）、助手口吻、Markdown、代码、多句话和过长的内容。没有好的预测时，就什么都不显示。
-- **复用会话的 prompt 缓存。** fork 模式发出的请求与主对话循环完全一致（相同的 thinking 级别、工具和参数），因此直接命中会话自己的缓存：长会话实测缓存命中率 99.9%，完整上下文的请求也几乎只产生缓存读取费用。一旦缓存变冷、过期或连续未命中，本会话内停用 fork，改用便宜的 segment 模式（可单独指定更便宜的 segment 模型）。
+- **复用会话的 prompt 缓存。** fork 模式发出的请求与主对话循环完全一致（相同的 thinking 级别、工具和参数），因此直接命中会话自己的缓存：长会话实测缓存命中率 99.9%，完整上下文的请求也几乎只产生缓存读取费用。缓存变冷或过期期间改用便宜的 segment 模式（可单独指定更便宜的 segment 模型）；继续对话、缓存重新变热后自动恢复 fork。
 - **支持中文。** 中文对话给出中文建议；过滤器同样识别中日韩语言的客套话和助手口吻。
 - **与其他编辑器扩展共存。** 扩展包装当前的输入框，而不是替换它，因此可与自带输入框的扩展（如 `pi-powerline-footer`）同时使用。实在无法画进输入框时，改为在输入框上方显示一行。
 - **开箱即用。** 默认使用当前会话的模型，无需配置；所有设置都在 `/suggestion` 里修改，立即生效。
@@ -53,7 +53,7 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 在 `/suggestion` → Context mode 中选择模式：
 
 - **segment**（默认）：把最后一轮的简短摘录发给 **segment 模型**，便宜、快速。segment 模型默认跟随会话模型，也可以在 Segment model 中另选一个（例如更便宜的模型）。
-- **fork**：用**会话模型**重放整个会话，使请求复用会话自身的 prompt 缓存；缓存命中时质量最好且成本很低。模型没有返回可用结果时，回退到 segment（使用 segment 模型）。一旦缓存看起来已冷或已过期，或 fork 连续未命中缓存，本会话内停用 fork，改用 segment；新会话或 `/reload` 后重新启用。
+- **fork**：用**会话模型**重放整个会话，使请求复用会话自身的 prompt 缓存；缓存命中时质量最好且成本很低。模型没有返回可用结果时，回退到 segment（使用 segment 模型）。缓存看起来已冷或已过期时改用 segment；继续对话、新一轮让缓存重新变热后，自动恢复 fork。如果 fork 连续未命中缓存，本会话内停用 fork；新会话或 `/reload` 后重新启用。
 
 ## 设置
 
@@ -67,7 +67,7 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 | Tab to generate | on | 在空输入框中按 Tab 立即生成 |
 | Idle delay | 20s | 一轮结束后输入框需空闲多久才生成 |
 | Max length | 30 chars | 超过此长度的建议会被丢弃 |
-| Cache freshness | 300s | 上次回复早于此时间则视为缓存已过期（本会话停用 fork） |
+| Cache freshness | 300s | 上次回复早于此时间则视为缓存已过期（改用 segment，直到下一轮让缓存变热） |
 | Fork context limit | unlimited | 会话超过此 token 数时跳过 fork |
 | Diagnostic log | off | 每次生成写一行 JSONL 到 `~/.pi/agent/prompt-suggestion.log` |
 

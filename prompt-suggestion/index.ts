@@ -84,7 +84,8 @@ interface SuggestionConfig {
    *   the request is identical to the session's except for the appended instruction (same thinking
    *   level, same tools, no tool_choice/response_format), so it hits the session's prompt cache.
    *   Falls back to segment if the model doesn't comply (no JSON / tries to call a tool), and is
-   *   turned off for the session once the cache is cold or expired or two consecutive forks miss it.
+   *   paused while the cache is cold or expired (resumes once a later turn warms it) and turned off
+   *   for the session after two consecutive forks miss the cache.
    */
   context?: "segment" | "fork";
   /** Fork context token cap (0 = unlimited, default 0) */
@@ -513,8 +514,10 @@ function cacheIsWarm(ctx: ExtensionContext): boolean {
 /** Consecutive "large request with zero cache hits" count; fork is disabled at 2 (one warm-up allowed) */
 let coldForkStreak = 0;
 /**
- * Why fork was turned off for the rest of this session (cold or expired cache, repeated misses);
- * null while fork is still allowed. Cleared on session start (new, resume, fork, /reload).
+ * Set when fork is turned off for the rest of this session (repeated misses: the fork's prefix never
+ * matches the cache); null while fork is allowed. Cleared on session start (new, resume, fork, /reload).
+ * A cold or expired cache is not latched: it is re-checked on every generation, so fork resumes as
+ * soon as a later turn warms the cache again.
  */
 let forkOffReason: string | null = null;
 
@@ -538,7 +541,7 @@ function recordForkOutcome(usage: any) {
   if (coldForkStreak >= 2) forkOffReason = "cold_streak";
 }
 
-/** Why fork can't be used; null when it can. A cold or expired cache turns fork off for the session. */
+/** Why fork can't be used now; null when it can. Cold/expired only pause fork until a turn warms the cache. */
 function forkSkipReason(ctx: ExtensionContext): string | null {
   if (forkOffReason) return forkOffReason;
   const cfg = loadConfig();
@@ -549,9 +552,7 @@ function forkSkipReason(ctx: ExtensionContext): string | null {
   const usage = ctx.getContextUsage?.();
   if (maxTok > 0 && usage?.tokens != null && usage.tokens > maxTok) return "over_max_fork_tokens";
   const state = cacheState(ctx);
-  if (state === "warm") return null;
-  forkOffReason = state === "expired" ? "cache_expired" : "cache_cold";
-  return forkOffReason;
+  return state === "warm" ? null : state === "expired" ? "cache_expired" : "cache_cold";
 }
 
 /**
@@ -1105,7 +1106,7 @@ const SETTINGS: SettingDef[] = [
   {
     id: "context",
     label: "Context mode",
-    description: "fork: full session with the session model, reuses the session's prompt cache, best quality. segment: short excerpt with the segment model, cheap and fast. Once the cache is cold or expired, fork is turned off until the next session or /reload and segment is used",
+    description: "fork: full session with the session model, reuses the session's prompt cache, best quality. segment: short excerpt with the segment model, cheap and fast. While the cache is cold or expired, segment is used; fork resumes once the conversation warms the cache again",
     choices: () => [
       { label: "fork", value: "fork" },
       { label: "segment (default)", value: undefined },
@@ -1138,7 +1139,7 @@ const SETTINGS: SettingDef[] = [
   {
     id: "cacheTtlSeconds",
     label: "Cache freshness",
-    description: "If the last reply is older than this, the cache is treated as expired and fork is turned off for the rest of the session",
+    description: "If the last reply is older than this, the cache is treated as expired and segment is used until the next turn warms it",
     choices: (cfg) =>
       numChoices([0, 60, 120, 300, 600, 1800, 3600], cfg.cacheTtlSeconds, DEFAULT_CACHE_TTL_SECONDS, (n) => (n === 0 ? "no check" : `${n}s`)),
   },
