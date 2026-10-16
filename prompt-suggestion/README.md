@@ -8,9 +8,17 @@ A [pi](https://pi.dev) extension that predicts your next message after each turn
 - Typing hides it; clearing the input box brings it back. Sending a message or starting a new turn discards it.
 - **Tab** in an empty input box with no suggestion generates one immediately.
 
-Suggestions start after the second assistant reply, once the input box has been idle for the configured delay (20s by default). Output goes through a deterministic filter that rejects evaluations ("looks good"), assistant-voice text, Markdown, code, multiple sentences, and anything too long, so it stays silent rather than showing a bad guess.
+Suggestions start after the second assistant reply, once the input box has been idle for the configured delay (20s by default).
 
-Works alongside extensions that replace the input editor (such as `pi-powerline-footer`).
+## Highlights
+
+- **Predicts what you would say, not what the assistant would.** The prompt and output rules follow Claude Code's prompt-suggestion feature: a suggestion is the next thing you would type yourself, not an assistant-voice offer.
+- **Silent rather than wrong.** Model output goes through a deterministic filter that rejects evaluations ("looks good", "thanks"), assistant-voice text, Markdown, code, multiple sentences, and anything too long. When there is no good guess, nothing is shown.
+- **Reuses the session's prompt cache.** In fork mode the request is identical to the main loop's (same thinking level, tools, and parameters), so it hits the session's own cache: 99.9% cache hits measured on a long session, so even a full-context request costs little more than cache reads. When the cache is cold, expired, or keeps missing, it falls back to the cheap segment mode.
+- **Speaks your language.** Chinese conversations get Chinese suggestions; the filter also catches CJK pleasantries and assistant voice.
+- **Plays well with other editor extensions.** It wraps the current input editor instead of replacing it, so it works alongside extensions that install their own editor (such as `pi-powerline-footer`). If it can't draw inside the editor, it shows a line above it instead.
+- **Works out of the box.** Uses the session's model by default with no setup; every setting is in `/suggestion` and applies immediately.
+- **Lightweight.** A single file with no dependencies beyond pi itself.
 
 ## Install
 
