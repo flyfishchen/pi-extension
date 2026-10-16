@@ -1,5 +1,7 @@
 # pi-extension
 
+English | [中文](README.zh-CN.md)
+
 Extensions for the [pi coding agent](https://pi.dev). Each extension is published to npm as a pi package, so pi installs it directly.
 
 | Extension | Description | npm |

@@ -1,5 +1,7 @@
 # @flyfishchen/pi-prompt-suggestion
 
+English | [中文](README.zh-CN.md)
+
 A [pi](https://pi.dev) extension that predicts your next message after each turn and shows it as dimmed ghost text in the empty input box.
 
 - **Tab** accepts the suggestion; **Esc** dismisses it.
