@@ -45,7 +45,7 @@ After the second assistant reply, once the input box has been empty and idle for
 | Esc | Dismiss the suggestion |
 | Any other key | Type normally; the suggestion hides and comes back when the box is empty again |
 
-Run `/suggestion` to change settings: turn it on or off, the idle delay, maximum length, context mode (`segment` is cheap, `fork` reuses the session's prompt cache for better suggestions), or a separate model. Changes are saved to `~/.pi/agent/prompt-suggestion.json` and apply immediately. See the [extension README](prompt-suggestion/README.md) for every setting.
+Run `/suggestion` to change settings: turn it on or off, the idle delay, maximum length, context mode (`segment` is cheap, `fork` reuses the session's prompt cache for better suggestions), or a separate (e.g. cheaper) model for segment requests. Changes are saved to `~/.pi/agent/prompt-suggestion.json` and apply immediately. See the [extension README](prompt-suggestion/README.md) for every setting.
 
 Each suggestion is one extra model request. To stop all requests, use `/suggestion` → Enabled → off.
 

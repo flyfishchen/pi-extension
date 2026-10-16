@@ -67,11 +67,11 @@ interface SuggestionConfig {
   /** Tab in an empty input box generates a suggestion immediately (default true) */
   tabToGenerate?: boolean;
   /**
-   * "provider/model-id"; unset = follow the session model.
-   * A model different from the session's can only use "segment": fork must use the session model
-   * to reuse the session's prompt cache.
+   * Model for segment requests (segment mode and fork's fallback), "provider/model-id";
+   * unset = follow the session model. Fork always uses the session model: only that model
+   * shares the session's prompt cache.
    */
-  model?: string;
+  segmentModel?: string;
   /** Maximum characters per suggestion (8-100, default 30) */
   maxCardChars?: number;
   /** Idle seconds before generating (5-600, default 20) */
@@ -84,7 +84,7 @@ interface SuggestionConfig {
    *   the request is identical to the session's except for the appended instruction (same thinking
    *   level, same tools, no tool_choice/response_format), so it hits the session's prompt cache.
    *   Falls back to segment if the model doesn't comply (no JSON / tries to call a tool), and is
-   *   skipped automatically when the cache is cold or two consecutive forks miss the cache.
+   *   turned off for the session once the cache is cold or expired or two consecutive forks miss it.
    */
   context?: "segment" | "fork";
   /** Fork context token cap (0 = unlimited, default 0) */
@@ -158,15 +158,9 @@ function delayMs(): number {
   return (Number.isFinite(n) ? clamp(n, 5, 600) : DEFAULT_DELAY_SECONDS) * 1000;
 }
 
-/** Whether the configured model differs from the session model (if so, fork is not used). */
-function usesCustomModel(ctx: ExtensionContext, model: any): boolean {
-  const cur: any = ctx.model;
-  return !!model && !!cur && (model.provider !== cur.provider || model.id !== cur.id);
-}
-
-/** Resolve the suggestion model; falls back to the session model when unset or not found. */
-function resolveModel(ctx: ExtensionContext) {
-  const spec = loadConfig().model;
+/** Resolve the segment model; falls back to the session model when unset or not found. */
+function resolveSegmentModel(ctx: ExtensionContext) {
+  const spec = loadConfig().segmentModel;
   const slash = spec?.indexOf("/") ?? -1;
   if (spec && slash > 0) {
     const m = ctx.modelRegistry.find(spec.slice(0, slash), spec.slice(slash + 1));
@@ -700,19 +694,18 @@ async function completeCards(
 }
 
 async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual = false): Promise<string[]> {
-  const model = resolveModel(ctx);
-  if (!model) return [];
   // Automatic suggestions wait for two replies; a manual Tab request only needs one
   if (assistantTurns(ctx) < (manual ? 1 : MIN_ASSISTANT_TURNS)) return [];
 
   const limit = CANDIDATES;
   const charLimit = cardCharLimit();
-
-  const base = { session: ctx.sessionManager.getSessionId(), model: `${model.provider}/${model.id}` };
+  const session = ctx.sessionManager.getSessionId();
 
   // 1) fork: replay the full real context with the prediction instruction appended.
-  //    Session model only: another model can't share the cache, so fork would be a second big session.
-  const skip = usesCustomModel(ctx, model) ? "custom_model" : forkSkipReason(ctx);
+  //    Always the session model: another model can't share the cache, so fork would be a second big session.
+  const model: any = ctx.model;
+  const base = { session, model: model ? `${model.provider}/${model.id}` : undefined };
+  const skip = model ? forkSkipReason(ctx) : "no_session_model";
   if (skip !== null) logEvent({ ...base, path: "fork", skipped: skip });
   else {
     const fork = forkContext(ctx, buildForkInstruction(limit, charLimit));
@@ -737,13 +730,16 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
     }
   }
 
-  // 2) segment fallback: cold cache, oversized context, custom model or failed fork -> lightweight excerpt
+  // 2) segment (the configured mode, or fork's fallback: fork off, oversized context or failed fork)
+  //    -> lightweight excerpt with the segment model
+  const segModel = resolveSegmentModel(ctx);
+  if (!segModel) return [];
   const segment = lastTurnSegment(ctx);
   if (!segment) return [];
   const seg = buildSegmentRequest(segment, charLimit);
   const t1 = Date.now();
-  const r = await completeCards(ctx, model, seg.context, { ...seg.options, signal }, limit);
-  logEvent({ ...base, path: "segment", ms: Date.now() - t1, stop: r.stop, parsed: r.parsed, cards: r.cards, usage: usageBrief(r.usage), error: r.error });
+  const r = await completeCards(ctx, segModel, seg.context, { ...seg.options, signal }, limit);
+  logEvent({ session, model: `${segModel.provider}/${segModel.id}`, path: "segment", ms: Date.now() - t1, stop: r.stop, parsed: r.parsed, cards: r.cards, usage: usageBrief(r.usage), error: r.error });
   return r.cards;
 }
 
@@ -1107,25 +1103,25 @@ const SETTINGS: SettingDef[] = [
     choices: () => ON_OFF(true),
   },
   {
-    id: "tabToGenerate",
-    label: "Tab to generate",
-    description: "Press Tab in an empty input box to generate a suggestion immediately, without waiting for the idle delay",
-    choices: () => ON_OFF(true),
-  },
-  {
     id: "context",
     label: "Context mode",
-    description: "fork: full session, reuses the session's prompt cache, best quality. segment: short excerpt, cheap and fast. A custom model always uses segment. A cold or expired cache turns fork off until the next session or /reload",
+    description: "fork: full session with the session model, reuses the session's prompt cache, best quality. segment: short excerpt with the segment model, cheap and fast. Once the cache is cold or expired, fork is turned off until the next session or /reload and segment is used",
     choices: () => [
       { label: "fork", value: "fork" },
       { label: "segment (default)", value: undefined },
     ],
   },
   {
-    id: "model",
-    label: "Model",
-    description: "Follow session to use fork; any other model uses segment only (Enter opens the list)",
-    choices: (cfg) => [{ label: FOLLOW_LABEL, value: undefined }, ...(cfg.model ? [{ label: cfg.model, value: cfg.model }] : [])],
+    id: "segmentModel",
+    label: "Segment model",
+    description: "Model for segment requests (segment mode and fork's fallback). Fork always uses the session model (Enter opens the list)",
+    choices: (cfg) => [{ label: FOLLOW_LABEL, value: undefined }, ...(cfg.segmentModel ? [{ label: cfg.segmentModel, value: cfg.segmentModel }] : [])],
+  },
+  {
+    id: "tabToGenerate",
+    label: "Tab to generate",
+    description: "Press Tab in an empty input box to generate a suggestion immediately, without waiting for the idle delay",
+    choices: () => ON_OFF(true),
   },
   {
     id: "delaySeconds",
@@ -1193,7 +1189,7 @@ function openSettings(ctx: ExtensionContext): Promise<void> {
         currentValue: currentLabel(def, cfg),
         values: def.choices(cfg).map((c) => c.label),
       };
-      if (def.id === "model") {
+      if (def.id === "segmentModel") {
         delete item.values;
         item.submenu = (currentValue, close) => {
           const labels = [FOLLOW_LABEL, ...ctx.modelRegistry.getAvailable().map((m) => `${m.provider}/${m.id}`)];
@@ -1219,7 +1215,7 @@ function openSettings(ctx: ExtensionContext): Promise<void> {
       (id, label) => {
         const def = SETTINGS.find((d) => d.id === id);
         if (!def) return;
-        if (id === "model") applySetting("model", label === FOLLOW_LABEL ? undefined : label);
+        if (id === "segmentModel") applySetting("segmentModel", label === FOLLOW_LABEL ? undefined : label);
         else {
           const choice = def.choices(loadConfig()).find((c) => c.label === label);
           if (choice) applySetting(def.id, choice.value);
