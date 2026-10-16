@@ -4,32 +4,32 @@ Extensions for the [pi coding agent](https://pi.dev). Each extension is publishe
 
 | Extension | Description | npm |
 |---|---|---|
-| [prompt-suggestion](prompt-suggestion/) | Predicts your next message after each turn and shows it as ghost text in the input box (Tab to accept) | [`pi-prompt-suggestion`](https://www.npmjs.com/package/pi-prompt-suggestion) |
+| [prompt-suggestion](prompt-suggestion/) | Predicts your next message after each turn and shows it as ghost text in the input box (Tab to accept) | [`@flyfishchen/pi-prompt-suggestion`](https://www.npmjs.com/package/@flyfishchen/pi-prompt-suggestion) |
 
 ## Install
 
 Install with pi's package manager (it fetches the package from npm):
 
 ```bash
-pi install npm:pi-prompt-suggestion
+pi install npm:@flyfishchen/pi-prompt-suggestion
 ```
 
-This adds `"npm:pi-prompt-suggestion"` to `packages` in `~/.pi/agent/settings.json`, so it loads in every pi session. Restart pi (or run `/reload` in a running session) to activate it.
+This adds `"npm:@flyfishchen/pi-prompt-suggestion"` to `packages` in `~/.pi/agent/settings.json`, so it loads in every pi session. Restart pi (or run `/reload` in a running session) to activate it.
 
 Other options:
 
 ```bash
-pi install -l npm:pi-prompt-suggestion        # this project only (.pi/settings.json)
-pi install npm:pi-prompt-suggestion@0.1.0     # pin a version
-pi -e npm:pi-prompt-suggestion                # try it for one session without installing
+pi install -l npm:@flyfishchen/pi-prompt-suggestion     # this project only (.pi/settings.json)
+pi install npm:@flyfishchen/pi-prompt-suggestion@0.1.0  # pin a version
+pi -e npm:@flyfishchen/pi-prompt-suggestion             # try it for one session without installing
 ```
 
 Manage it:
 
 ```bash
-pi list                                       # show installed packages
-pi update --extensions                        # update to the latest version
-pi remove npm:pi-prompt-suggestion            # uninstall
+pi list                                          # show installed packages
+pi update --extensions                           # update to the latest version
+pi remove npm:@flyfishchen/pi-prompt-suggestion  # uninstall
 ```
 
 ## Usage
@@ -65,7 +65,7 @@ Run `/reload` inside pi after editing the code. To try one extension in isolatio
 pi -ne --no-mcp -e ./prompt-suggestion --no-session
 ```
 
-To publish a new version: bump `version` in the extension's `package.json`, then run `npm publish` in its folder.
+To publish a new version: bump `version` in the extension's `package.json`, then run `npm publish` in its folder (packages are scoped under `@flyfishchen` and published with public access).
 
 ## License
 
