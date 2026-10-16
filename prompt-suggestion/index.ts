@@ -78,14 +78,14 @@ interface SuggestionConfig {
   delaySeconds?: number;
   /**
    * Context mode:
-   * - "segment" (default): a short excerpt of the conversation + this extension's own system prompt.
-   *   Cheap and reliably returns JSON.
-   * - "fork": replay the real system prompt + full model context. Like Claude Code's cacheSafeParams,
+   * - "fork" (default): replay the real system prompt + full model context. Like Claude Code's cacheSafeParams,
    *   the request is identical to the session's except for the appended instruction (same thinking
    *   level, same tools, no tool_choice/response_format), so it hits the session's prompt cache.
    *   Falls back to segment if the model doesn't comply (no JSON / tries to call a tool), and is
    *   paused while the cache is cold or expired (resumes once a later turn warms it) and turned off
    *   for the session after two consecutive forks miss the cache.
+   * - "segment": a short excerpt of the conversation + this extension's own system prompt, sent to
+   *   the segment model. Cheap and reliably returns JSON.
    */
   context?: "segment" | "fork";
   /** Fork context token cap (0 = unlimited, default 0) */
@@ -167,9 +167,14 @@ function resolveSegmentModel(ctx: ExtensionContext) {
   return ctx.modelRegistry.find(spec.slice(0, slash), spec.slice(slash + 1)) ?? undefined;
 }
 
+/** Context mode is fork unless segment is chosen explicitly */
+function isForkMode(): boolean {
+  return loadConfig().context !== "segment";
+}
+
 /** Whether anything can be generated: fork mode, or segment mode with a segment model configured */
 function canGenerate(ctx: ExtensionContext): boolean {
-  return loadConfig().context === "fork" || !!resolveSegmentModel(ctx);
+  return isForkMode() || !!resolveSegmentModel(ctx);
 }
 
 /**
@@ -547,8 +552,8 @@ function recordForkOutcome(usage: any) {
 function forkSkipReason(ctx: ExtensionContext): string | null {
   if (forkOffReason) return forkOffReason;
   const cfg = loadConfig();
-  // segment by default; fork only when context:"fork" is set explicitly
-  if (cfg.context !== "fork") return "context_not_fork";
+  // fork by default; segment only when context:"segment" is set explicitly
+  if (cfg.context === "segment") return "context_not_fork";
   if (typeof (ctx.sessionManager as any)?.buildSessionProjection !== "function") return "no_projection_api";
   const maxTok = cfg.maxForkTokens ?? DEFAULT_MAX_FORK_TOKENS;
   const usage = ctx.getContextUsage?.();
@@ -1114,8 +1119,8 @@ const SETTINGS: SettingDef[] = [
     label: "Context mode",
     description: "fork: full session with the session model, reuses the session's prompt cache, best quality. segment: short excerpt with the segment model, cheap and fast. While the cache is cold or expired, segment is used; fork resumes once the conversation warms the cache again",
     choices: () => [
-      { label: "fork", value: "fork" },
-      { label: "segment (default)", value: undefined },
+      { label: "fork (default)", value: undefined },
+      { label: "segment", value: "segment" },
     ],
   },
   {

@@ -17,7 +17,7 @@
 - **复用会话的 prompt 缓存。** fork 模式发出的请求与主对话循环完全一致（相同的 thinking 级别、工具和参数），因此直接命中会话自己的缓存：长会话实测缓存命中率 99.9%，完整上下文的请求也几乎只产生缓存读取费用。缓存变冷或过期期间改用便宜的 segment 模式（使用你配置的 segment 模型）；继续对话、缓存重新变热后自动恢复 fork。
 - **支持中文。** 中文对话给出中文建议；过滤器同样识别中日韩语言的客套话和助手口吻。
 - **与其他编辑器扩展共存。** 扩展包装当前的输入框，而不是替换它，因此可与自带输入框的扩展（如 `pi-powerline-footer`）同时使用。实在无法画进输入框时，改为在输入框上方显示一行。
-- **一个设置界面。** 所有设置都在 `/suggestion` 里修改，立即生效，无需 `/reload`。
+- **开箱即用。** 默认使用 fork 模式和会话模型，无需配置；所有设置都在 `/suggestion` 里修改，立即生效。
 - **轻量。** 单个文件，除 pi 自身外没有任何依赖。
 
 ## 安装
@@ -28,7 +28,7 @@
 pi install npm:pi-prompt-suggestion
 ```
 
-这会把它加入 `~/.pi/agent/settings.json` 的 `packages`，之后每个会话都会加载。重启 pi（或运行 `/reload`）即可生效，然后[设置工作模式](#设置工作模式)。
+这会把它加入 `~/.pi/agent/settings.json` 的 `packages`，之后每个会话都会加载。重启 pi（或运行 `/reload`）即可生效，无需配置。
 
 ```bash
 pi install -l npm:pi-prompt-suggestion  # 仅对当前项目安装（.pi/settings.json）
@@ -36,15 +36,6 @@ pi -e npm:pi-prompt-suggestion          # 不安装，仅在本次会话中试�
 pi update npm:pi-prompt-suggestion      # 更新到最新版本
 pi remove npm:pi-prompt-suggestion      # 卸载
 ```
-
-## 设置工作模式
-
-选定方式之前不会生成任何建议。运行 `/suggestion`，至少完成以下一项：
-
-- 把 **Context mode** 设为 `fork`：用会话模型和它的 prompt 缓存预测；
-- 选择一个 **Segment model**（例如便宜、快速的模型），用于 segment 请求。
-
-未配置 segment 模型时，segment 模式不生成任何建议，fork 也没有回退：fork 无法运行（缓存冷或过期）时不显示建议。
 
 ## 使用
 
@@ -61,8 +52,10 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 
 在 `/suggestion` → Context mode 中选择模式：
 
-- **segment**（默认）：把最后一轮的简短摘录发给 **segment 模型**，便宜、快速。需要在 Segment model 中选择模型；未选择时，segment 模式不生成任何建议。
-- **fork**：用**会话模型**重放整个会话，使请求复用会话自身的 prompt 缓存；缓存命中时质量最好且成本很低。模型没有返回可用结果时，回退到 segment（使用 segment 模型；未配置则不回退）。缓存看起来已冷或已过期时改用 segment；继续对话、新一轮让缓存重新变热后，自动恢复 fork。如果 fork 连续未命中缓存，本会话内停用 fork；新会话或 `/reload` 后重新启用。
+- **fork**（默认）：用**会话模型**重放整个会话，使请求复用会话自身的 prompt 缓存；缓存命中时质量最好且成本很低。模型没有返回可用结果时，回退到 segment（使用 segment 模型；未配置则不回退）。缓存看起来已冷或已过期时改用 segment；继续对话、新一轮让缓存重新变热后，自动恢复 fork。如果 fork 连续未命中缓存，本会话内停用 fork；新会话或 `/reload` 后重新启用。
+- **segment**：把最后一轮的简短摘录发给 **segment 模型**，便宜、快速。需要在 Segment model 中选择模型；未选择时，segment 模式不生成任何建议。
+
+如果希望缓存冷或过期时也有建议，请选择一个 **Segment model**（例如便宜、快速的模型）。未选择时 fork 没有回退，这些时候不显示建议。
 
 ## 设置
 
@@ -71,7 +64,7 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 | 设置项 | 默认值 | 说明 |
 |---|---|---|
 | Enabled | on | 关闭后不生成建议、不发送任何请求 |
-| Context mode | segment | `fork`（会话模型，复用 prompt 缓存）或 `segment`（segment 模型，简短摘录） |
+| Context mode | fork | `fork`（会话模型，复用 prompt 缓存）或 `segment`（segment 模型，简短摘录） |
 | Segment model | Not set | segment 请求使用的模型，包括 fork 的回退。未设置则不发送 segment 请求。fork 总是使用会话模型 |
 | Tab to generate | on | 在空输入框中按 Tab 立即生成 |
 | Idle delay | 20s | 一轮结束后输入框需空闲多久才生成 |
@@ -84,7 +77,7 @@ pi remove npm:pi-prompt-suggestion      # 卸载
 
 ## 成本
 
-每条建议是一次额外的模型请求。segment 模式下请求很小；fork 模式下是完整上下文的请求，缓存命中时大部分是缓存读取。如需关闭：`/suggestion` → Enabled → off。
+每条建议是一次额外的模型请求。fork 模式（默认）下是完整上下文的请求，但只在缓存热时运行，大部分是缓存读取；segment 模式下请求很小。如需关闭：`/suggestion` → Enabled → off。
 
 ## 许可证
 

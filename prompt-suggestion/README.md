@@ -17,7 +17,7 @@ Suggestions start after the second assistant reply, once the input box has been 
 - **Reuses the session's prompt cache.** In fork mode the request is identical to the main loop's (same thinking level, tools, and parameters), so it hits the session's own cache: 99.9% cache hits measured on a long session, so even a full-context request costs little more than cache reads. While the cache is cold or expired, the cheap segment mode is used instead (with the segment model you configured), and fork resumes as soon as the conversation warms the cache again.
 - **Speaks your language.** Chinese conversations get Chinese suggestions; the filter also catches CJK pleasantries and assistant voice.
 - **Plays well with other editor extensions.** It wraps the current input editor instead of replacing it, so it works alongside extensions that install their own editor (such as `pi-powerline-footer`). If it can't draw inside the editor, it shows a line above it instead.
-- **One settings screen.** Every setting is in `/suggestion` and applies immediately, without `/reload`.
+- **Works out of the box.** Fork mode with the session's model is the default, so no setup is needed; every setting is in `/suggestion` and applies immediately.
 - **Lightweight.** A single file with no dependencies beyond pi itself.
 
 ## Install
@@ -28,7 +28,7 @@ The extension is published to npm. Install it with pi's package manager:
 pi install npm:pi-prompt-suggestion
 ```
 
-This adds it to `packages` in `~/.pi/agent/settings.json`, so it loads in every session. Restart pi (or run `/reload`) to activate it, then [set it up](#setup).
+This adds it to `packages` in `~/.pi/agent/settings.json`, so it loads in every session. Restart pi (or run `/reload`) to activate it; it works with no setup.
 
 ```bash
 pi install -l npm:pi-prompt-suggestion  # this project only (.pi/settings.json)
@@ -36,15 +36,6 @@ pi -e npm:pi-prompt-suggestion          # try it for one session without install
 pi update npm:pi-prompt-suggestion      # update to the latest version
 pi remove npm:pi-prompt-suggestion      # uninstall
 ```
-
-## Setup
-
-Nothing is generated until you choose how. Run `/suggestion` and do at least one of:
-
-- set **Context mode** to `fork` to predict with the session's model and its prompt cache;
-- pick a **Segment model** (for example a cheap, fast model) for segment requests.
-
-Without a segment model, segment mode generates nothing and fork has no fallback: when fork can't run (cold or expired cache), no suggestion is shown.
 
 ## Usage
 
@@ -61,8 +52,10 @@ Just keep working. After a turn ends and the input box stays empty for the idle 
 
 Pick the mode with `/suggestion` → Context mode:
 
-- **segment** (default): sends a short excerpt of the last turn to the **segment model**. Cheap and fast. Requires a model under Segment model; without one, segment mode generates nothing.
-- **fork**: replays the full session with the **session's model**, so the request reuses the session's own prompt cache, which gives the best suggestions at low cost when the cache is warm. Fork falls back to segment (using the segment model, if one is configured) when the model doesn't return a usable answer. While the cache looks cold or expired, segment is used instead; fork resumes automatically once you keep talking and a new turn warms the cache. If forks keep missing the cache, fork is turned off for the rest of the session; a new session or `/reload` turns it back on.
+- **fork** (default): replays the full session with the **session's model**, so the request reuses the session's own prompt cache, which gives the best suggestions at low cost when the cache is warm. Fork falls back to segment (using the segment model, if one is configured) when the model doesn't return a usable answer. While the cache looks cold or expired, segment is used instead; fork resumes automatically once you keep talking and a new turn warms the cache. If forks keep missing the cache, fork is turned off for the rest of the session; a new session or `/reload` turns it back on.
+- **segment**: sends a short excerpt of the last turn to the **segment model**. Cheap and fast. Requires a model under Segment model; without one, segment mode generates nothing.
+
+Pick a **Segment model** (for example a cheap, fast model) if you also want suggestions while the cache is cold or expired. Without one, fork has no fallback and no suggestion is shown at those times.
 
 ## Settings
 
@@ -71,7 +64,7 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 | Setting | Default | Description |
 |---|---|---|
 | Enabled | on | When off, no requests are sent |
-| Context mode | segment | `fork` (session model, reuses the prompt cache) or `segment` (segment model, short excerpt) |
+| Context mode | fork | `fork` (session model, reuses the prompt cache) or `segment` (segment model, short excerpt) |
 | Segment model | Not set | Model for segment requests, including fork's fallback. Not set: no segment requests. Fork always uses the session model |
 | Tab to generate | on | Tab in an empty input box generates immediately |
 | Idle delay | 20s | How long the input box must stay idle after a turn |
@@ -84,7 +77,7 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 
 ## Cost
 
-Each suggestion is one extra model request. In segment mode it is a small request; in fork mode it is a full-context request that is mostly cache reads when the cache is warm. Turn it off with `/suggestion` → Enabled → off.
+Each suggestion is one extra model request. In fork mode (the default) it is a full-context request that is mostly cache reads, since it only runs while the cache is warm; in segment mode it is a small request. Turn it off with `/suggestion` → Enabled → off.
 
 ## License
 
