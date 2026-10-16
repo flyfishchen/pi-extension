@@ -497,27 +497,37 @@ function lastAssistantEntry(ctx: ExtensionContext): any | undefined {
  * pi's Usage.input excludes cacheRead/cacheWrite, matching Anthropic semantics.
  * Without usage info treat as warm, so providers that don't report caching still get suggestions.
  */
-function cacheIsWarm(ctx: ExtensionContext): boolean {
+function cacheState(ctx: ExtensionContext): "warm" | "expired" | "cold" {
   const e = lastAssistantEntry(ctx);
   const u = e?.message?.usage;
-  if (!u) return true;
+  if (!u) return "warm";
   const ttlSeconds = loadConfig().cacheTtlSeconds ?? DEFAULT_CACHE_TTL_SECONDS;
   if (ttlSeconds > 0) {
     const ts = Date.parse(e.timestamp ?? "");
-    if (Number.isFinite(ts) && Date.now() - ts > ttlSeconds * 1000) return false;
+    if (Number.isFinite(ts) && Date.now() - ts > ttlSeconds * 1000) return "expired";
   }
   // cacheWrite is deliberately not counted: tokens just written to the cache are exactly what the
   // fork reads back, so a turn with a large (cached) tool result is the cheapest time to fork
   const fresh = (u.input ?? 0) + (u.output ?? 0);
-  return fresh <= CACHE_COLD_TOKENS;
+  return fresh <= CACHE_COLD_TOKENS ? "warm" : "cold";
+}
+
+function cacheIsWarm(ctx: ExtensionContext): boolean {
+  return cacheState(ctx) === "warm";
 }
 
 /** Consecutive "large request with zero cache hits" count; fork is disabled at 2 (one warm-up allowed) */
 let coldForkStreak = 0;
+/**
+ * Why fork was turned off for the rest of this session (cold or expired cache, repeated misses);
+ * null while fork is still allowed. Cleared on session start (new, resume, fork, /reload).
+ */
+let forkOffReason: string | null = null;
 
 /** For tests and session lifecycle: reset the adaptive fork state */
 function resetForkState() {
   coldForkStreak = 0;
+  forkOffReason = null;
 }
 
 /**
@@ -531,11 +541,12 @@ function recordForkOutcome(usage: any) {
   const prompt = (usage.input ?? 0) + cached + (usage.cacheWrite ?? 0);
   if (prompt >= FORK_MIN_TOKENS && cached === 0) coldForkStreak += 1;
   else coldForkStreak = 0;
+  if (coldForkStreak >= 2) forkOffReason = "cold_streak";
 }
 
-/** Why fork can't be used; null when it can. */
+/** Why fork can't be used; null when it can. A cold or expired cache turns fork off for the session. */
 function forkSkipReason(ctx: ExtensionContext): string | null {
-  if (coldForkStreak >= 2) return "cold_streak";
+  if (forkOffReason) return forkOffReason;
   const cfg = loadConfig();
   // segment by default; fork only when context:"fork" is set explicitly
   if (cfg.context !== "fork") return "context_not_fork";
@@ -543,7 +554,10 @@ function forkSkipReason(ctx: ExtensionContext): string | null {
   const maxTok = cfg.maxForkTokens ?? DEFAULT_MAX_FORK_TOKENS;
   const usage = ctx.getContextUsage?.();
   if (maxTok > 0 && usage?.tokens != null && usage.tokens > maxTok) return "over_max_fork_tokens";
-  return cacheIsWarm(ctx) ? null : "cache_cold";
+  const state = cacheState(ctx);
+  if (state === "warm") return null;
+  forkOffReason = state === "expired" ? "cache_expired" : "cache_cold";
+  return forkOffReason;
 }
 
 /**
@@ -1101,7 +1115,7 @@ const SETTINGS: SettingDef[] = [
   {
     id: "context",
     label: "Context mode",
-    description: "fork: full session, reuses the session's prompt cache, best quality. segment: short excerpt, cheap and fast. A custom model always uses segment",
+    description: "fork: full session, reuses the session's prompt cache, best quality. segment: short excerpt, cheap and fast. A custom model always uses segment. A cold or expired cache turns fork off until the next session or /reload",
     choices: () => [
       { label: "fork", value: "fork" },
       { label: "segment (default)", value: undefined },
@@ -1128,7 +1142,7 @@ const SETTINGS: SettingDef[] = [
   {
     id: "cacheTtlSeconds",
     label: "Cache freshness",
-    description: "If the last reply is older than this, the cache is treated as expired and segment is used",
+    description: "If the last reply is older than this, the cache is treated as expired and fork is turned off for the rest of the session",
     choices: (cfg) =>
       numChoices([0, 60, 120, 300, 600, 1800, 3600], cfg.cacheTtlSeconds, DEFAULT_CACHE_TTL_SECONDS, (n) => (n === 0 ? "no check" : `${n}s`)),
   },
@@ -1284,5 +1298,5 @@ export default function promptSuggestion(pi: ExtensionAPI) {
 export {
   CANDIDATES, triggerNow, canTriggerByTab, injectGhost, patchGhost, wrapEditorFactory, showGhost, clearGhost,
   buildInstruction, buildForkInstruction, buildForkRequest, buildSegmentRequest, lastTurnSegment, rejectReason,
-  generateCards, wordCount, cacheIsWarm, forkSkipReason, resetForkState, parseOutput, cardCharLimit,
+  generateCards, wordCount, cacheIsWarm, cacheState, forkSkipReason, resetForkState, recordForkOutcome, parseOutput, cardCharLimit,
 };
