@@ -501,10 +501,25 @@ function lastAssistantEntry(ctx: ExtensionContext): any | undefined {
 }
 
 /**
+ * Thinking level in effect when the last assistant reply was written (pi records every change as a
+ * thinking_level_change entry; before the first one the level is "off"); undefined without a reply.
+ */
+function thinkingLevelAtLastReply(ctx: ExtensionContext): string | undefined {
+  let level = "off";
+  let atReply: string | undefined;
+  for (const e of ctx.sessionManager.getBranch() as any[]) {
+    if (e.type === "thinking_level_change") level = e.thinkingLevel;
+    else if (e.type === "message" && e.message?.role === "assistant") atReply = level;
+  }
+  return atReply;
+}
+
+/**
  * Whether the cache is likely warm:
  * 0) model: the last assistant message came from a different model than the session's current one
  *    (the user switched models) -> the new model has no cache yet; treated as expired until a turn
- *    with the new model completes;
+ *    with the new model completes. Likewise when the thinking level changed since that reply: fork
+ *    sends the current level, which no longer matches the cached prefix;
  * 1) freshness: the last assistant message is older than cacheTtlSeconds -> probably expired;
  * 2) usage (Claude Code's O()): last turn's uncached tokens (input+output) above the threshold -> cold.
  * pi's Usage.input excludes cacheRead/cacheWrite, matching Anthropic semantics.
@@ -515,6 +530,9 @@ function cacheState(ctx: ExtensionContext): "warm" | "expired" | "cold" {
   const cur: any = ctx.model;
   const m = e?.message;
   if (cur && m?.provider && m?.model && (m.provider !== cur.provider || m.model !== cur.id)) return "expired";
+  const level = piApi?.getThinkingLevel();
+  const levelAtReply = thinkingLevelAtLastReply(ctx);
+  if (level !== undefined && levelAtReply !== undefined && level !== levelAtReply) return "expired";
   const u = m?.usage;
   if (!u) return "warm";
   const ttlSeconds = loadConfig().cacheTtlSeconds ?? DEFAULT_CACHE_TTL_SECONDS;
