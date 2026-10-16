@@ -1,4 +1,4 @@
-# @flyfishchen/pi-prompt-suggestion
+# pi-prompt-suggestion
 
 [English](README.md) | 中文
 
@@ -17,16 +17,16 @@
 扩展发布在 npm 上，使用 pi 的包管理器安装：
 
 ```bash
-pi install npm:@flyfishchen/pi-prompt-suggestion
+pi install npm:pi-prompt-suggestion
 ```
 
 这会把它加入 `~/.pi/agent/settings.json` 的 `packages`，之后每个会话都会加载。重启 pi（或运行 `/reload`）即可生效。
 
 ```bash
-pi install -l npm:@flyfishchen/pi-prompt-suggestion  # 仅对当前项目安装（.pi/settings.json）
-pi -e npm:@flyfishchen/pi-prompt-suggestion          # 不安装，仅在本次会话中试用
-pi update npm:@flyfishchen/pi-prompt-suggestion      # 更新到最新版本
-pi remove npm:@flyfishchen/pi-prompt-suggestion      # 卸载
+pi install -l npm:pi-prompt-suggestion  # 仅对当前项目安装（.pi/settings.json）
+pi -e npm:pi-prompt-suggestion          # 不安装，仅在本次会话中试用
+pi update npm:pi-prompt-suggestion      # 更新到最新版本
+pi remove npm:pi-prompt-suggestion      # 卸载
 ```
 
 ## 使用

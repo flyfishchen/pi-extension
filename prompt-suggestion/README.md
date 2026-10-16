@@ -1,4 +1,4 @@
-# @flyfishchen/pi-prompt-suggestion
+# pi-prompt-suggestion
 
 English | [中文](README.zh-CN.md)
 
@@ -17,16 +17,16 @@ Works alongside extensions that replace the input editor (such as `pi-powerline-
 The extension is published to npm. Install it with pi's package manager:
 
 ```bash
-pi install npm:@flyfishchen/pi-prompt-suggestion
+pi install npm:pi-prompt-suggestion
 ```
 
 This adds it to `packages` in `~/.pi/agent/settings.json`, so it loads in every session. Restart pi (or run `/reload`) to activate it.
 
 ```bash
-pi install -l npm:@flyfishchen/pi-prompt-suggestion  # this project only (.pi/settings.json)
-pi -e npm:@flyfishchen/pi-prompt-suggestion          # try it for one session without installing
-pi update npm:@flyfishchen/pi-prompt-suggestion      # update to the latest version
-pi remove npm:@flyfishchen/pi-prompt-suggestion      # uninstall
+pi install -l npm:pi-prompt-suggestion  # this project only (.pi/settings.json)
+pi -e npm:pi-prompt-suggestion          # try it for one session without installing
+pi update npm:pi-prompt-suggestion      # update to the latest version
+pi remove npm:pi-prompt-suggestion      # uninstall
 ```
 
 ## Usage

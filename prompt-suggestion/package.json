@@ -1,5 +1,5 @@
 {
-  "name": "@flyfishchen/pi-prompt-suggestion",
+  "name": "pi-prompt-suggestion",
   "version": "0.1.0",
   "description": "Predicts your next message after each turn and shows it as ghost text in pi's input box (Tab to accept)",
   "type": "module",
@@ -25,9 +25,6 @@
     "directory": "prompt-suggestion"
   },
   "homepage": "https://github.com/flyfishchen/pi-extension/tree/main/prompt-suggestion",
-  "publishConfig": {
-    "access": "public"
-  },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
