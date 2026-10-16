@@ -1,0 +1,37 @@
+{
+  "name": "pi-prompt-suggestion",
+  "version": "0.1.0",
+  "description": "Predicts your next message after each turn and shows it as ghost text in pi's input box (Tab to accept)",
+  "type": "module",
+  "files": [
+    "index.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "coding-agent",
+    "extension",
+    "prompt-suggestion",
+    "autocomplete"
+  ],
+  "author": "flyfishchen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flyfishchen/pi-extension.git",
+    "directory": "prompt-suggestion"
+  },
+  "homepage": "https://github.com/flyfishchen/pi-extension/tree/main/prompt-suggestion",
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
