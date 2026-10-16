@@ -35,7 +35,7 @@ const DEFAULT_LOG_PATH = join(getAgentDir(), "prompt-suggestion.log");
  */
 const CANDIDATES = 3;
 /** Default maximum characters per suggestion */
-const DEFAULT_MAX_CARD_CHARS = 30;
+const DEFAULT_MAX_CARD_CHARS = 50;
 /** Baseline word limit for non-CJK suggestions (CJK is bounded by the character limit instead) */
 const MAX_CARD_WORDS = 12;
 /** Upper bound of the configurable character limit */
@@ -71,7 +71,7 @@ interface SuggestionConfig {
    * fallback. Fork always uses the session model: only that model shares the session's prompt cache.
    */
   segmentModel?: string;
-  /** Maximum characters per suggestion (8-100, default 30) */
+  /** Maximum characters per suggestion (8-100, default 50) */
   maxCardChars?: number;
   /** Idle seconds before an automatic suggestion (5-600; default 0 = no automatic suggestions, Tab only) */
   delaySeconds?: number;

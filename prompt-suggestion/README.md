@@ -65,7 +65,7 @@ Run `/suggestion` to open the settings screen. Settings are stored in `~/.pi/age
 | Segment model | Not set | Model for segment requests, including fork's fallback. Not set: no segment requests. Fork always uses the session model |
 | Tab to generate | on | Tab in an empty input box generates immediately |
 | Idle delay | off | Generate automatically once the input box has been idle this long after a turn; `off` (0): only on Tab |
-| Max length | 30 chars | Longer suggestions are discarded |
+| Max length | 50 chars | Longer suggestions are discarded |
 | Cache freshness | 300s | Older replies are treated as an expired cache (segment is used until the next turn warms it) |
 | Fork context limit | unlimited | Skip fork above this many tokens |
 | Diagnostic log | off | Write one JSONL line per generation to `~/.pi/agent/prompt-suggestion.log` |
