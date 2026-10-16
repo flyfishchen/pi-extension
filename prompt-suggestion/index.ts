@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { UserMessage } from "@earendil-works/pi-ai";
 import { Container, Key, matchesKey, SelectList, SettingsList, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { SettingItem } from "@earendil-works/pi-tui";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 /**
@@ -115,26 +115,37 @@ function usageBrief(u: any) {
   return { input: u.input, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite, output: u.output, total: (u.input ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0) };
 }
 
+/** Parsed config, keyed by the file's mtime and size so edits apply without /reload */
+let configCache: { key: string; cfg: SuggestionConfig } | undefined;
+
 function loadConfig(): SuggestionConfig {
+  let key: string;
+  try {
+    const st = statSync(CONFIG_PATH);
+    key = `${st.mtimeMs}:${st.size}`;
+  } catch {
+    return {}; // no config file
+  }
+  if (configCache?.key === key) return configCache.cfg;
+  let cfg: SuggestionConfig = {};
   try {
     // Strip a UTF-8 BOM (Windows editors such as Notepad may add one; JSON.parse rejects it)
-    return existsSync(CONFIG_PATH) ? JSON.parse(readFileSync(CONFIG_PATH, "utf8").replace(/^\uFEFF/, "")) : {};
+    cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf8").replace(/^\uFEFF/, ""));
   } catch {
-    return {};
+    cfg = {};
   }
+  configCache = { key, cfg };
+  return cfg;
 }
 
 function saveConfig(cfg: SuggestionConfig) {
   mkdirSync(dirname(CONFIG_PATH), { recursive: true });
   writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+  configCache = undefined;
 }
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
-}
-
-function cardLimit(): number {
-  return CANDIDATES;
 }
 
 function cardCharLimit(): number {
@@ -184,8 +195,9 @@ Never output:
 - The assistant's voice ("let me...", "I'll...", "here is...")
 - New ideas the user never mentioned, or more than one sentence
 If the next step isn't obvious, or it involves security, credentials or privacy, output [].
+Language: write every item in the language of the user's own recent messages, in their style and wording. If the user writes Chinese, write Chinese, even when the assistant replied in English or these instructions are in English.
 Output must be a JSON array of strings: at most ${maxCards} items, most likely first, all different; output [] if nothing fits.
-Each item at most ${maxChars} characters (for English, 2-${cardWordLimit(maxChars)} words). Write in the same language and style the user writes in.
+Each item at most ${maxChars} characters (for English, 2-${cardWordLimit(maxChars)} words).
 Output only the JSON, no explanation; start with [ and end with ].`;
 }
 
@@ -244,17 +256,28 @@ function lastTurnSegment(ctx: ExtensionContext): string {
     if (t) recentUsers.unshift(clip(t, 800));
   }
 
-  // This turn's assistant output (after the user message)
+  // This turn's assistant output (after the user message). Consecutive tool runs are collapsed into
+  // one line ("[tools ran: bash ×30, read]") so they don't crowd out the reply text.
   const current: string[] = [];
+  let tools = new Map<string, number>();
+  const flushTools = () => {
+    if (tools.size === 0) return;
+    current.push(`[tools ran: ${[...tools].map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(", ")}]`);
+    tools = new Map();
+  };
   for (let i = u + 1; i < msgs.length; i++) {
     const m = msgs[i];
     if (m.role === "assistant") {
       const t = textOf(m);
-      if (t) current.push(t);
+      if (t) {
+        flushTools();
+        current.push(t);
+      }
     } else if (m.role === "toolResult") {
-      current.push(`[tool ${m.toolName} ran]`);
+      tools.set(m.toolName, (tools.get(m.toolName) ?? 0) + 1);
     }
   }
+  flushTools();
 
   // Previous assistant output (latest assistant message with text before the user message)
   let prevAssistant = "";
@@ -328,16 +351,16 @@ const MULTI_SENTENCE = /[.!?]\s+[A-Z]|[。！？]\s*[\p{L}\p{N}]/u;
 const HAS_FORMATTING = /[\n*]|\*\*/;
 /** Markdown structure (headings / quotes / tables) is never user input */
 const MARKDOWN_LIKE = /^\s*(#{1,6}\s|>\s|\|.*\|)/;
-/** Code / config snippets are never user input */
-const CODE_LIKE = /[{}`]|=>|^\s*(const|let|var|function|import|export|def|class|return|if|for|while|await|async)\b/;
+/**
+ * Code / config snippets are never user input. Keywords alone are not enough: "import the csv again"
+ * or "for option 2 go ahead" are normal requests, so each keyword must come with code syntax.
+ */
+const CODE_LIKE =
+  /[{}`]|=>|^\s*(?:const|let|var)\s+[\w$]+\s*=|^\s*import\s+(?:[\w${},*\s]+\s+from\s+)?["']|^\s*export\s+(?:default|const|function|class)\b|^\s*(?:def|function|class)\s+[\w$]+\s*[(:{]|^\s*(?:return|await)\s+[\w$.]+\(|^\s*(?:if|for|while)\s*\(/;
 const EVALUATIVE = /\b(thanks|thank you|looks good|sounds good|that works|that worked|that's all|nice|great|perfect|makes sense|awesome|excellent)\b/i;
 const EVALUATIVE_CJK = /^(谢谢|多谢|感谢|好的|好嘞|看起来不错|太好了|完美|辛苦了|ありがとう|助かりました|감사합니다|고마워요)/u;
 const CLAUDE_VOICE = /^(let me|i'll|i've|i'm|i can|i would|i think|i notice|here's|here is|here are|that's|this is|this will|you can|you should|you could|sure,|of course|certainly)/i;
 const CLAUDE_VOICE_CJK = /^(让我|我来|我会|我将|这里|这是|以下是|可以帮你|帮你|建议你|让我来)/u;
-
-function isQuestion(s: string): boolean {
-  return /[?？]$/.test(s);
-}
 
 /** Whether a candidate looks like something the user would type. Returns null if it passes, else the reason. */
 function rejectReason(raw: string, charLimit = DEFAULT_MAX_CARD_CHARS): string | null {
@@ -353,7 +376,6 @@ function rejectReason(raw: string, charLimit = DEFAULT_MAX_CARD_CHARS): string |
   if (CODE_LIKE.test(s)) return "code_like";
   if (s.length > charLimit) return "too_long";
   if (MULTI_SENTENCE.test(s)) return "multiple_sentences";
-  if (isQuestion(s)) return "question";
   if (PREFIXED_LABEL.test(s)) return "prefixed_label";
   if (EVALUATIVE.test(s) || EVALUATIVE_CJK.test(s)) return "evaluative";
   if (CLAUDE_VOICE.test(s) || CLAUDE_VOICE_CJK.test(s)) return "claude_voice";
@@ -441,18 +463,19 @@ function parseOutput(text: string, limit: number, charLimit = DEFAULT_MAX_CARD_C
   return { cards: out, parsed: true };
 }
 
-function parseCards(text: string, limit: number, charLimit = DEFAULT_MAX_CARD_CHARS): string[] {
-  return parseOutput(text, limit, charLimit).cards;
-}
-
 function userInstructionMessage(text: string): UserMessage {
   return { role: "user", content: [{ type: "text", text }], timestamp: Date.now() };
 }
 
+/**
+ * Completed assistant turns: replies that ended the turn (stopReason "stop") with text. Intermediate
+ * messages such as "Let me look at the file" + a tool call end with "toolUse" and don't count.
+ */
 function assistantTurns(ctx: ExtensionContext): number {
   let n = 0;
   for (const e of ctx.sessionManager.getBranch()) {
-    if (e.type === "message" && (e as any).message?.role === "assistant" && textOf((e as any).message)) n++;
+    const m = (e as any).message;
+    if (e.type === "message" && m?.role === "assistant" && m.stopReason === "stop" && textOf(m)) n++;
   }
   return n;
 }
@@ -483,11 +506,10 @@ function cacheIsWarm(ctx: ExtensionContext): boolean {
     const ts = Date.parse(e.timestamp ?? "");
     if (Number.isFinite(ts) && Date.now() - ts > ttlSeconds * 1000) return false;
   }
+  // cacheWrite is deliberately not counted: tokens just written to the cache are exactly what the
+  // fork reads back, so a turn with a large (cached) tool result is the cheapest time to fork
   const fresh = (u.input ?? 0) + (u.output ?? 0);
-  if (fresh > CACHE_COLD_TOKENS) return false;
-  const write = u.cacheWrite ?? 0;
-  if (fresh + write > CACHE_COLD_TOKENS) return false;
-  return true;
+  return fresh <= CACHE_COLD_TOKENS;
 }
 
 /** Consecutive "large request with zero cache hits" count; fork is disabled at 2 (one warm-up allowed) */
@@ -509,14 +531,6 @@ function recordForkOutcome(usage: any) {
   const prompt = (usage.input ?? 0) + cached + (usage.cacheWrite ?? 0);
   if (prompt >= FORK_MIN_TOKENS && cached === 0) coldForkStreak += 1;
   else coldForkStreak = 0;
-}
-
-/**
- * Whether fork can be used (replay the real system prompt + full context to hit the prompt cache).
- * False when the cache is cold, two forks in a row missed, or maxForkTokens is set and exceeded.
- */
-function canFork(ctx: ExtensionContext): boolean {
-  return forkSkipReason(ctx) === null;
 }
 
 /** Why fork can't be used; null when it can. */
@@ -562,7 +576,8 @@ Do not write generic lines with no basis in the conversation (such as an out-of-
 Requirements: the user's voice (not the assistant's), one sentence, specific; no Markdown, code, evaluation or pleasantries; when unsure give fewer, don't pad.
 
 Output format (strict): output only one JSON object, like {"suggestions": ["first prediction", "second prediction"]}.
-At most ${maxCards} suggestions, most likely first, all different, each at most ${maxChars} characters, written in the same language the user writes in; if nothing fits, output {"suggestions": []}.
+Language: write each suggestion in the language of the user's own messages in this session (if the user writes Chinese, write Chinese, even though these instructions are in English).
+At most ${maxCards} suggestions, most likely first, all different, each at most ${maxChars} characters; if nothing fits, output {"suggestions": []}.
 </autocomplete_request>
 Now output only that JSON object; the first character must be {`;
 }
@@ -582,7 +597,7 @@ let piApi: ExtensionAPI | undefined;
  * - response_format=json_object -> same size but a different prefix, cache almost all misses.
  * So only `reasoning` (mapped through streamSimple like the main loop), sessionId and cacheRetention
  * are set. "No tools, JSON only" is enforced by the instruction; on non-compliance the caller falls
- * back to segment. maxTokens is only an output cap (not part of the prefix) and must leave room for thinking.
+ * back to segment. maxTokens is not set either (see below).
  */
 function buildForkRequest(
   llm: any[],
@@ -592,13 +607,22 @@ function buildForkRequest(
   const context: any = { messages: [...llm, userInstructionMessage(instruction)] };
   // Only add systemPrompt when the projection has no leading system message (else it gets prepended twice)
   if (llm[0]?.role !== "system" && opts.systemPrompt) context.systemPrompt = opts.systemPrompt;
+  // No maxTokens: the main loop sends none (pi uses the model's limit), and a smaller cap makes pi shrink
+  // the thinking budget to fit, which changes the thinking parameters and breaks cache sharing
   const options: any = {
     cacheRetention: "short",
     sessionId: opts.sessionId,
-    maxTokens: 4000,
   };
   if (opts.thinkingLevel && opts.thinkingLevel !== "off") options.reasoning = opts.thinkingLevel;
   return { context, options };
+}
+
+/** Segment request: the excerpt as the user message, this extension's prompt as the system prompt. */
+function buildSegmentRequest(segment: string, charLimit: number): { context: any; options: any } {
+  return {
+    context: { systemPrompt: buildInstruction(CANDIDATES, charLimit), messages: [userInstructionMessage(segment)] },
+    options: { cacheRetention: "none" },
+  };
 }
 
 /**
@@ -667,8 +691,8 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
   // Automatic suggestions wait for two replies; a manual Tab request only needs one
   if (assistantTurns(ctx) < (manual ? 1 : MIN_ASSISTANT_TURNS)) return [];
 
-  const limit = cardLimit();
-  const instruction = buildInstruction(limit, cardCharLimit());
+  const limit = CANDIDATES;
+  const charLimit = cardCharLimit();
 
   const base = { session: ctx.sessionManager.getSessionId(), model: `${model.provider}/${model.id}` };
 
@@ -677,7 +701,7 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
   const skip = usesCustomModel(ctx, model) ? "custom_model" : forkSkipReason(ctx);
   if (skip !== null) logEvent({ ...base, path: "fork", skipped: skip });
   else {
-    const fork = forkContext(ctx, buildForkInstruction(limit, cardCharLimit()));
+    const fork = forkContext(ctx, buildForkInstruction(limit, charLimit));
     if (!fork) logEvent({ ...base, path: "fork", skipped: "no_context" });
     else {
       const t0 = Date.now();
@@ -702,9 +726,9 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
   // 2) segment fallback: cold cache, oversized context, custom model or failed fork -> lightweight excerpt
   const segment = lastTurnSegment(ctx);
   if (!segment) return [];
-  const context = { systemPrompt: instruction, messages: [userInstructionMessage(segment)] };
+  const seg = buildSegmentRequest(segment, charLimit);
   const t1 = Date.now();
-  const r = await completeCards(ctx, model, context, { signal, cacheRetention: "none" }, limit);
+  const r = await completeCards(ctx, model, seg.context, { ...seg.options, signal }, limit);
   logEvent({ ...base, path: "segment", ms: Date.now() - t1, stop: r.stop, parsed: r.parsed, cards: r.cards, usage: usageBrief(r.usage), error: r.error });
   return r.cards;
 }
@@ -1257,4 +1281,8 @@ export default function promptSuggestion(pi: ExtensionAPI) {
 }
 
 // Named exports for test scripts; pi only uses the default export.
-export { triggerNow, canTriggerByTab, injectGhost, patchGhost, wrapEditorFactory, showGhost, clearGhost, buildInstruction, buildForkInstruction, buildForkRequest, lastTurnSegment, parseCards, rejectReason, generateCards, wordCount, cacheIsWarm, canFork, resetForkState, parseOutput, cardCharLimit };
+export {
+  CANDIDATES, triggerNow, canTriggerByTab, injectGhost, patchGhost, wrapEditorFactory, showGhost, clearGhost,
+  buildInstruction, buildForkInstruction, buildForkRequest, buildSegmentRequest, lastTurnSegment, rejectReason,
+  generateCards, wordCount, cacheIsWarm, forkSkipReason, resetForkState, parseOutput, cardCharLimit,
+};
