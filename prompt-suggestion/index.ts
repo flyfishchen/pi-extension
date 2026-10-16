@@ -23,7 +23,7 @@ import { dirname, join } from "node:path";
  */
 
 const WIDGET_KEY = "prompt-suggestion";
-const FOLLOW_LABEL = "Follow session";
+const UNSET_MODEL_LABEL = "Not set";
 // pi's agent dir (~/.pi/agent on Linux/macOS, %USERPROFILE%\.pi\agent on Windows; PI_CODING_AGENT_DIR overrides)
 const CONFIG_PATH = join(getAgentDir(), "prompt-suggestion.json");
 const DEFAULT_LOG_PATH = join(getAgentDir(), "prompt-suggestion.log");
@@ -67,9 +67,9 @@ interface SuggestionConfig {
   /** Tab in an empty input box generates a suggestion immediately (default true) */
   tabToGenerate?: boolean;
   /**
-   * Model for segment requests (segment mode and fork's fallback), "provider/model-id";
-   * unset = follow the session model. Fork always uses the session model: only that model
-   * shares the session's prompt cache.
+   * Model for segment requests (segment mode and fork's fallback), "provider/model-id".
+   * Unset (or not found) = no segment requests: segment mode generates nothing and fork has no
+   * fallback. Fork always uses the session model: only that model shares the session's prompt cache.
    */
   segmentModel?: string;
   /** Maximum characters per suggestion (8-100, default 30) */
@@ -159,15 +159,17 @@ function delayMs(): number {
   return (Number.isFinite(n) ? clamp(n, 5, 600) : DEFAULT_DELAY_SECONDS) * 1000;
 }
 
-/** Resolve the segment model; falls back to the session model when unset or not found. */
+/** Resolve the segment model; undefined when unset or not found (segment requests are then not sent). */
 function resolveSegmentModel(ctx: ExtensionContext) {
   const spec = loadConfig().segmentModel;
   const slash = spec?.indexOf("/") ?? -1;
-  if (spec && slash > 0) {
-    const m = ctx.modelRegistry.find(spec.slice(0, slash), spec.slice(slash + 1));
-    if (m) return m;
-  }
-  return ctx.model;
+  if (!spec || slash <= 0) return undefined;
+  return ctx.modelRegistry.find(spec.slice(0, slash), spec.slice(slash + 1)) ?? undefined;
+}
+
+/** Whether anything can be generated: fork mode, or segment mode with a segment model configured */
+function canGenerate(ctx: ExtensionContext): boolean {
+  return loadConfig().context === "fork" || !!resolveSegmentModel(ctx);
 }
 
 /**
@@ -734,7 +736,10 @@ async function generateCards(ctx: ExtensionContext, signal: AbortSignal, manual 
   // 2) segment (the configured mode, or fork's fallback: fork off, oversized context or failed fork)
   //    -> lightweight excerpt with the segment model
   const segModel = resolveSegmentModel(ctx);
-  if (!segModel) return [];
+  if (!segModel) {
+    logEvent({ session, path: "segment", skipped: "no_segment_model" });
+    return [];
+  }
   const segment = lastTurnSegment(ctx);
   if (!segment) return [];
   const seg = buildSegmentRequest(segment, charLimit);
@@ -1019,7 +1024,7 @@ function showGhost(ctx: ExtensionContext, text: string) {
 
 /** Generate and show one suggestion as ghost text; Tab puts it in the editor. Only while still idle. */
 async function runSuggestion(ctx: ExtensionContext, manual = false) {
-  if (!ctx.isIdle() || !isEnabled()) return;
+  if (!ctx.isIdle() || !isEnabled() || !canGenerate(ctx)) return;
   const ac = new AbortController();
   inflight = ac;
   let items: string[] = [];
@@ -1052,7 +1057,8 @@ function canTriggerByTab(): boolean {
     return false; // stale context
   }
   const cfg = loadConfig();
-  return cfg.enabled !== false && cfg.tabToGenerate !== false;
+  // Segment mode without a segment model generates nothing: leave Tab to the editor
+  return cfg.enabled !== false && cfg.tabToGenerate !== false && !!ctx && canGenerate(ctx);
 }
 
 /** Generate immediately (Tab in an empty editor): skip the idle delay and show a placeholder meanwhile */
@@ -1115,8 +1121,8 @@ const SETTINGS: SettingDef[] = [
   {
     id: "segmentModel",
     label: "Segment model",
-    description: "Model for segment requests (segment mode and fork's fallback). Fork always uses the session model (Enter opens the list)",
-    choices: (cfg) => [{ label: FOLLOW_LABEL, value: undefined }, ...(cfg.segmentModel ? [{ label: cfg.segmentModel, value: cfg.segmentModel }] : [])],
+    description: "Model for segment requests (segment mode and fork's fallback). Not set: segment mode generates nothing and fork has no fallback. Fork always uses the session model (Enter opens the list)",
+    choices: (cfg) => [{ label: UNSET_MODEL_LABEL, value: undefined }, ...(cfg.segmentModel ? [{ label: cfg.segmentModel, value: cfg.segmentModel }] : [])],
   },
   {
     id: "tabToGenerate",
@@ -1193,7 +1199,7 @@ function openSettings(ctx: ExtensionContext): Promise<void> {
       if (def.id === "segmentModel") {
         delete item.values;
         item.submenu = (currentValue, close) => {
-          const labels = [FOLLOW_LABEL, ...ctx.modelRegistry.getAvailable().map((m) => `${m.provider}/${m.id}`)];
+          const labels = [UNSET_MODEL_LABEL, ...ctx.modelRegistry.getAvailable().map((m) => `${m.provider}/${m.id}`)];
           const list = new SelectList(
             labels.map((l) => ({ value: l, label: l })),
             Math.min(labels.length, 12),
@@ -1216,7 +1222,7 @@ function openSettings(ctx: ExtensionContext): Promise<void> {
       (id, label) => {
         const def = SETTINGS.find((d) => d.id === id);
         if (!def) return;
-        if (id === "segmentModel") applySetting("segmentModel", label === FOLLOW_LABEL ? undefined : label);
+        if (id === "segmentModel") applySetting("segmentModel", label === UNSET_MODEL_LABEL ? undefined : label);
         else {
           const choice = def.choices(loadConfig()).find((c) => c.label === label);
           if (choice) applySetting(def.id, choice.value);
@@ -1295,5 +1301,5 @@ export default function promptSuggestion(pi: ExtensionAPI) {
 export {
   CANDIDATES, triggerNow, canTriggerByTab, injectGhost, patchGhost, wrapEditorFactory, showGhost, clearGhost,
   buildInstruction, buildForkInstruction, buildForkRequest, buildSegmentRequest, lastTurnSegment, rejectReason,
-  generateCards, wordCount, cacheIsWarm, cacheState, forkSkipReason, resetForkState, recordForkOutcome, parseOutput, cardCharLimit,
+  generateCards, wordCount, cacheIsWarm, cacheState, canGenerate, forkSkipReason, resetForkState, recordForkOutcome, parseOutput, cardCharLimit,
 };

@@ -16,7 +16,7 @@
 pi install npm:pi-prompt-suggestion
 ```
 
-这会把 `"npm:pi-prompt-suggestion"` 加入 `~/.pi/agent/settings.json` 的 `packages`，之后每个 pi 会话都会加载。重启 pi（或在运行中的会话里执行 `/reload`）即可生效。
+这会把 `"npm:pi-prompt-suggestion"` 加入 `~/.pi/agent/settings.json` 的 `packages`，之后每个 pi 会话都会加载。重启 pi（或在运行中的会话里执行 `/reload`）即可生效，然后运行 `/suggestion` 选择工作模式：把 Context mode 设为 `fork`，或选择一个 Segment model。完成之前不会生成任何建议。
 
 其他方式：
 

@@ -16,7 +16,7 @@ Install with pi's package manager (it fetches the package from npm):
 pi install npm:pi-prompt-suggestion
 ```
 
-This adds `"npm:pi-prompt-suggestion"` to `packages` in `~/.pi/agent/settings.json`, so it loads in every pi session. Restart pi (or run `/reload` in a running session) to activate it.
+This adds `"npm:pi-prompt-suggestion"` to `packages` in `~/.pi/agent/settings.json`, so it loads in every pi session. Restart pi (or run `/reload` in a running session) to activate it, then run `/suggestion` to choose a mode: set Context mode to `fork`, or pick a Segment model. Nothing is generated until you do.
 
 Other options:
 
