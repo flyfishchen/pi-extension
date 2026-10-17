@@ -6,7 +6,7 @@
 
 | 扩展 | 说明 | npm |
 |---|---|---|
-| [prompt-suggestion](prompt-suggestion/README.zh-CN.md) | 每轮对话结束后预测你的下一条消息，以灰色提示文字显示在输入框中（Tab 采纳） | [`pi-prompt-suggestion`](https://www.npmjs.com/package/pi-prompt-suggestion) |
+| [prompt-suggestion](prompt-suggestion/README_zh-CN.md) | 每轮对话结束后预测你的下一条消息，以灰色提示文字显示在输入框中（Tab 采纳） | [`pi-prompt-suggestion`](https://www.npmjs.com/package/pi-prompt-suggestion) |
 
 ## 安装
 
@@ -45,7 +45,7 @@ pi remove npm:pi-prompt-suggestion  # 卸载
 | Esc | 忽略建议 |
 | 其他按键 | 正常输入；建议会隐藏，清空输入框后重新出现 |
 
-运行 `/suggestion` 修改设置：自动生成的空闲延迟（默认关闭）、Tab to generate、最大长度、上下文模式（`segment` 便宜；`fork` 复用会话的 prompt 缓存，建议质量更好）或 segment 请求使用的单独模型（例如更便宜的模型）。修改保存在 `~/.pi/agent/prompt-suggestion.json`，立即生效。全部设置项见[扩展说明](prompt-suggestion/README.zh-CN.md)。
+运行 `/suggestion` 修改设置：自动生成的空闲延迟（默认关闭）、Tab to generate、最大长度、上下文模式（`segment` 便宜；`fork` 复用会话的 prompt 缓存，建议质量更好）或 segment 请求使用的单独模型（例如更便宜的模型）。修改保存在 `~/.pi/agent/prompt-suggestion.json`，立即生效。全部设置项见[扩展说明](prompt-suggestion/README_zh-CN.md)。
 
 每条建议是一次额外的模型请求。只有按 Tab 或设置了空闲延迟时才会发送请求。
 

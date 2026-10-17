@@ -1,6 +1,6 @@
 # pi-prompt-suggestion
 
-English | [中文](README.zh-CN.md)
+English | [中文](https://github.com/flyfishchen/pi-extension/blob/main/prompt-suggestion/README_zh-CN.md)
 
 A [pi](https://pi.dev) extension that predicts your next message and shows it as dimmed ghost text in the empty input box.
 

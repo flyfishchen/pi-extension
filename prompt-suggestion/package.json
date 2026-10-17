@@ -1,12 +1,12 @@
 {
   "name": "pi-prompt-suggestion",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Predicts your next message after each turn and shows it as ghost text in pi's input box (Tab to accept)",
   "type": "module",
   "files": [
     "index.ts",
     "README.md",
-    "README.zh-CN.md",
+    "README_zh-CN.md",
     "LICENSE"
   ],
   "keywords": [

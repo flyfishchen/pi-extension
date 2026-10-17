@@ -1,6 +1,6 @@
 # pi-prompt-suggestion
 
-[English](README.md) | 中文
+[English](https://github.com/flyfishchen/pi-extension/blob/main/prompt-suggestion/README.md) | 中文
 
 一个 [pi](https://pi.dev) 扩展：预测你接下来最可能输入的消息，并以灰色提示文字（ghost text）显示在空输入框中。
 
