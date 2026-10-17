@@ -1,6 +1,6 @@
 {
   "name": "pi-prompt-suggestion",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Predicts your next message after each turn and shows it as ghost text in pi's input box (Tab to accept)",
   "type": "module",
   "files": [
@@ -31,6 +31,7 @@
     "@earendil-works/pi-tui": "*"
   },
   "pi": {
+    "image": "https://raw.githubusercontent.com/flyfishchen/pi-extension/main/prompt-suggestion/demo.gif",
     "extensions": [
       "./index.ts"
     ]

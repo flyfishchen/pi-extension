@@ -4,6 +4,8 @@
 
 一个 [pi](https://pi.dev) 扩展：预测你接下来最可能输入的消息，并以灰色提示文字（ghost text）显示在空输入框中。
 
+![演示：按 Tab 生成建议，再按 Tab 采纳](https://raw.githubusercontent.com/flyfishchen/pi-extension/main/prompt-suggestion/demo.gif)
+
 - 在空输入框中按 **Tab** 生成建议；再按 **Tab** 采纳，按 **Esc** 忽略。
 - 开始打字时建议会隐藏，清空输入框后重新出现；发送消息或开始新一轮对话后建议作废。
 - 可选：设置 **Idle delay** 后，一轮对话结束、输入框空闲达到该时长时自动生成建议（默认关闭）。

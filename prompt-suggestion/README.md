@@ -4,6 +4,8 @@ English | [中文](https://github.com/flyfishchen/pi-extension/blob/main/prompt-
 
 A [pi](https://pi.dev) extension that predicts your next message and shows it as dimmed ghost text in the empty input box.
 
+![Demo: press Tab to generate a suggestion, Tab again to accept it](https://raw.githubusercontent.com/flyfishchen/pi-extension/main/prompt-suggestion/demo.gif)
+
 - Press **Tab** in an empty input box to get a suggestion; press **Tab** again to accept it, **Esc** to dismiss it.
 - Typing hides it; clearing the input box brings it back. Sending a message or starting a new turn discards it.
 - Optional: set an **Idle delay** to get suggestions automatically once a turn ends and the input box has been idle that long (off by default).
